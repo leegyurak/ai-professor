@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ai-professor-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: dev1234
+      MYSQL_DATABASE: aiprofessor_dev
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdev1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ai-professor-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-professor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ai-professor-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-professor
+    environment:
+      PROFILE: dev
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: aiprofessor_dev
+      DB_USERNAME: root
+      DB_PASSWORD: dev1234
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-professor-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  ai-professor-network:
+    driver: bridge

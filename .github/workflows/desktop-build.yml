@@ -1,0 +1,205 @@
+name: Desktop Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            platform: mac
+            artifact_name: ai-professor-desktop-mac
+          - os: windows-latest
+            platform: windows
+            artifact_name: ai-professor-desktop-windows
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Package application (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          npm install -g electron-packager
+          electron-packager . "AI Professor" \
+            --platform=darwin \
+            --arch=x64,arm64 \
+            --out=release \
+            --overwrite \
+            --icon=assets/icon.icns \
+            --app-bundle-id=com.aiprofessor.desktop
+
+      - name: Package application (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          npm install -g electron-packager
+          electron-packager . "AI Professor" `
+            --platform=win32 `
+            --arch=x64 `
+            --out=release `
+            --overwrite `
+            --icon=assets/icon.ico `
+            --win32metadata.CompanyName="AI Professor" `
+            --win32metadata.ProductName="AI Professor Desktop"
+
+      - name: Create archive (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd release
+          for dir in AI\ Professor-darwin-*; do
+            if [ -d "$dir" ]; then
+              arch=$(echo "$dir" | sed 's/.*-darwin-//')
+              zip -r "ai-professor-desktop-mac-${arch}.zip" "$dir"
+            fi
+          done
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd release
+          Get-ChildItem -Directory | ForEach-Object {
+            Compress-Archive -Path $_.FullName -DestinationPath "ai-professor-desktop-windows.zip"
+          }
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: desktop/release/*.zip
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: desktop/release/*.zip
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract tag name
+        id: extract_tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | grep "^v" | sed -n '2p')
+          echo "PREV_TAG=${PREV_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Generate desktop changelog
+        id: desktop_changelog
+        run: |
+          if [ -z "${{ steps.prev_tag.outputs.PREV_TAG }}" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -- desktop/)
+          else
+            COMMITS=$(git log ${{ steps.prev_tag.outputs.PREV_TAG }}..${{ steps.extract_tag.outputs.TAG }} --pretty=format:"- %s (%h)" -- desktop/)
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="No changes in desktop"
+          fi
+
+          echo "COMMITS<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate backend changelog
+        id: backend_changelog
+        run: |
+          if [ -z "${{ steps.prev_tag.outputs.PREV_TAG }}" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -- backend/)
+          else
+            COMMITS=$(git log ${{ steps.prev_tag.outputs.PREV_TAG }}..${{ steps.extract_tag.outputs.TAG }} --pretty=format:"- %s (%h)" -- backend/)
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="No changes in backend"
+          fi
+
+          echo "COMMITS<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        run: |
+          cat << EOF > release_notes.md
+          # AI Professor Release ${{ steps.extract_tag.outputs.TAG }}
+
+          ## Desktop Changes
+          ${{ steps.desktop_changelog.outputs.COMMITS }}
+
+          ## Backend Changes
+          ${{ steps.backend_changelog.outputs.COMMITS }}
+
+          ## Downloads
+          - **macOS (Intel)**: ai-professor-desktop-mac-x64.zip
+          - **macOS (Apple Silicon)**: ai-professor-desktop-mac-arm64.zip
+          - **Windows**: ai-professor-desktop-windows.zip
+
+          ## Installation
+          ### Desktop Application
+          1. Download the appropriate file for your platform
+          2. Extract the archive
+          3. Run the application
+
+          ### Backend (Docker)
+          \`\`\`bash
+          docker pull ${{ secrets.DOCKER_USERNAME }}/ai-professor:${{ steps.extract_tag.outputs.TAG }}
+          \`\`\`
+
+          ---
+          *Generated automatically from commit history*
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.extract_tag.outputs.TAG }}
+          name: Release ${{ steps.extract_tag.outputs.TAG }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

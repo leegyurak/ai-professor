@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: ai-professor
+  profiles:
+    active: test
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 30000
+      validation-timeout: 5000
+      leak-detection-threshold: 60000
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: UTC
+  data:
+    redis:
+      timeout: 60000
+
+jwt:
+  secret: test-secret-key-for-jwt-token-generation-minimum-256-bits-required-for-hs256-algorithm
+  expiration: 86400000 # 24 hours
+
+claude:
+  api:
+    key: test-api-key
+    url: https://api.anthropic.com/v1/messages
+    model: claude-sonnet-4-5-20250929
+    max-tokens: 4096
+
+session:
+  max-concurrent-sessions: 3
+
+pdf:
+  max-size-bytes: 31457280 # 30MB
