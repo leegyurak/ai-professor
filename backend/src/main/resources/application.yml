@@ -40,7 +40,7 @@ jwt:
 
 openai:
   api:
-    key: ${OPENAI_API_KEY}
+    key: test-mock-api-key
     url: https://api.openai.com/v1/responses
     model: gpt-5
     max-tokens: 128000
@@ -82,12 +82,12 @@ spring:
       port: 6379
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:dev-secret-key-for-jwt-token-generation-minimum-256-bits-required}
   expiration: 86400000 # 24 hours
 
 openai:
   api:
-    key: ${OPENAI_API_KEY}
+    key: ${OPENAI_API_KEY:dev-mock-api-key}
     url: https://api.openai.com/v1/responses
     model: gpt-5
     max-tokens: 128000

@@ -37,6 +37,12 @@ abstract class IntegrationTestBase {
 
             registry.add("spring.data.redis.host", redisContainer::getHost)
             registry.add("spring.data.redis.port") { redisContainer.getMappedPort(6379) }
+
+            // Add OpenAI API configuration for testing
+            registry.add("openai.api.key") { "test-mock-api-key" }
+            registry.add("openai.api.url") { "https://api.openai.com/v1/responses" }
+            registry.add("openai.api.model") { "gpt-5" }
+            registry.add("openai.api.max-tokens") { 128000 }
         }
     }
 }
