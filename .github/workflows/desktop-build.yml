@@ -39,6 +39,8 @@ jobs:
 
       - name: Build application
         run: npm run build
+        env:
+          VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
 
       - name: Package application (macOS)
         if: matrix.os == 'macos-latest'
