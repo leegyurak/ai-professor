@@ -1,4 +1,4 @@
-import { BACKEND_URL, REQUEST_TIMEOUT_MS } from '@/shared/config';
+import { BACKEND_URL, REQUEST_TIMEOUT_MS, APP_ELECTRON_TOKEN } from '@/shared/config';
 
 export interface ApiError {
   status: number;
@@ -11,6 +11,11 @@ async function http<T>(path: string, init: RequestInit & { authToken?: string } 
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const headers = new Headers(init.headers || {});
   headers.set('Content-Type', 'application/json');
+
+  // Add X-App-Token header for production CORS
+  if (APP_ELECTRON_TOKEN) {
+    headers.set('X-App-Token', APP_ELECTRON_TOKEN);
+  }
 
   console.log('[API] authToken:', init.authToken);
   if (init.authToken) {

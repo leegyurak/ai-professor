@@ -41,6 +41,7 @@ jobs:
         run: npm run build
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+          VITE_APP_ELECTRON_TOKEN: ${{ secrets.VITE_APP_ELECTRON_TOKEN }}
 
       - name: Package application (macOS)
         if: matrix.os == 'macos-latest'

@@ -1,5 +1,6 @@
 package com.aiprofessor.infrastructure.config
 
+import com.aiprofessor.infrastructure.security.ElectronAppFilter
 import com.aiprofessor.infrastructure.security.JwtAuthenticationFilter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -19,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableWebSecurity
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val electronAppFilter: ElectronAppFilter,
     @Value("\${spring.profiles.active:dev}") private val activeProfile: String,
 ) {
     @Bean
@@ -32,6 +34,7 @@ class SecurityConfig(
                     .requestMatchers("/api/auth/**").permitAll()
                     .anyRequest().authenticated()
             }
+            .addFilterBefore(electronAppFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
@@ -51,11 +54,11 @@ class SecurityConfig(
                 configuration.maxAge = 3600L
             }
             "prod" -> {
-                // Production: Restrict to specific origins
-                // TODO: Update with actual production origins
-                configuration.allowedOrigins = listOf("https://your-production-domain.com")
+                // Production: Allow Electron app only
+                // Electron app should send requests with custom origin
+                configuration.allowedOriginPatterns = listOf("app://*", "file://*")
                 configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                configuration.allowedHeaders = listOf("Authorization", "Content-Type")
+                configuration.allowedHeaders = listOf("Authorization", "Content-Type", "X-App-Token")
                 configuration.allowCredentials = true
                 configuration.maxAge = 3600L
             }
