@@ -579,7 +579,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
               <>
                 <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
                 <div style={{ fontSize: 16, fontWeight: 500 }}>{LOADING_MESSAGES[loadingMessageIndex]}</div>
-                <div className="small" style={{ color: 'var(--muted)' }}>⏱️ 최대 5분까지 소요될 수 있습니다</div>
+                <div className="small" style={{ color: 'var(--muted)' }}>⏱️ 최대 15분 정도 걸리니 바람이라도<br/>쐬고 오는 거 어때요?</div>
               </>
             ) : (
               <>
