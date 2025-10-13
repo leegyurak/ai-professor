@@ -9,10 +9,10 @@ export default defineConfig(({ mode }) => {
     base: './',
     plugins: [react()],
     define: {
-      'process.env': {
-        VITE_BACKEND_URL: env.VITE_BACKEND_URL || '',
-        VITE_APP_ELECTRON_TOKEN: env.VITE_APP_ELECTRON_TOKEN || ''
-      }
+      'process.env.VITE_BACKEND_URL': JSON.stringify(env.VITE_BACKEND_URL || ''),
+      'process.env.VITE_APP_ELECTRON_TOKEN': JSON.stringify(env.VITE_APP_ELECTRON_TOKEN || ''),
+      'import.meta.env.VITE_BACKEND_URL': JSON.stringify(env.VITE_BACKEND_URL || ''),
+      'import.meta.env.VITE_APP_ELECTRON_TOKEN': JSON.stringify(env.VITE_APP_ELECTRON_TOKEN || '')
     },
     build: {
       outDir: path.resolve(__dirname, 'dist/renderer'),

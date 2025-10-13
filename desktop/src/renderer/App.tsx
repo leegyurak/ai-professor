@@ -4,8 +4,8 @@ import { ActionType, generate, getHistory, HistoryItem, login, logout } from './
 import * as pdfjsLib from 'pdfjs-dist';
 
 function LoginScreen({ onDone }: { onDone: (username: string, token: string) => void }) {
-  const [username, setUsername] = useState('testuser');
-  const [password, setPassword] = useState('test1234');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
