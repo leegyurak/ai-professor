@@ -1,6 +1,6 @@
 package com.aiprofessor
 
-import com.aiprofessor.infrastructure.claude.ClaudeApiClient
+import com.aiprofessor.infrastructure.openai.OpenAiApiClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
@@ -16,11 +16,11 @@ class TestConfig {
 
     @Bean
     @Primary
-    fun mockClaudeApiClient(objectMapper: ObjectMapper): ClaudeApiClient =
-        object : ClaudeApiClient(
+    fun mockOpenAiApiClient(objectMapper: ObjectMapper): OpenAiApiClient =
+        object : OpenAiApiClient(
             apiKey = "mock-api-key",
-            apiUrl = "https://mock.api.com",
-            model = "mock-model",
+            apiUrl = "https://api.openai.com/v1/responses",
+            model = "gpt-5",
             maxTokens = 4096,
             objectMapper = objectMapper,
         ) {
@@ -33,7 +33,7 @@ class TestConfig {
                 """
                 # Mock Summary Response
 
-                This is a mock response from Claude API for testing purposes.
+                This is a mock response from OpenAI API for testing purposes.
 
                 ## Key Points
                 - Test point 1

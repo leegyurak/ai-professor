@@ -11,7 +11,7 @@ spring:
       on-profile: test
   mvc:
     async:
-      request-timeout: 600000  # 10 minutes for long-running document processing
+      request-timeout: 900000  # 10 minutes for long-running document processing
   datasource:
     url: jdbc:mysql://localhost:3306/aiprofessor_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
@@ -38,12 +38,12 @@ jwt:
   secret: test-secret-key-for-jwt-token-generation-minimum-256-bits-required-for-hs256-algorithm
   expiration: 86400000 # 24 hours
 
-claude:
+openai:
   api:
-    key: ${CLAUDE_API_KEY}
-    url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5-20250929
-    max-tokens: 81920
+    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/responses
+    model: gpt-5
+    max-tokens: 128000
 
 session:
   max-concurrent-sessions: 1
@@ -85,12 +85,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000 # 24 hours
 
-claude:
+openai:
   api:
-    key: ${CLAUDE_API_KEY}
-    url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5-20250929
-    max-tokens: 64000
+    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/responses
+    model: gpt-5
+    max-tokens: 128000
 
 session:
   max-concurrent-sessions: 1
@@ -137,12 +137,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000 # 24 hours
 
-claude:
+openai:
   api:
-    key: ${CLAUDE_API_KEY}
-    url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5-20250929
-    max-tokens: 4096
+    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/responses
+    model: gpt-5
+    max-tokens: 128000
 
 session:
   max-concurrent-sessions: 1

@@ -4,7 +4,7 @@ import com.aiprofessor.domain.document.DocumentHistory
 import com.aiprofessor.domain.document.DocumentHistoryRepository
 import com.aiprofessor.domain.document.DocumentRequest
 import com.aiprofessor.domain.document.ProcessingType
-import com.aiprofessor.infrastructure.claude.ClaudeApiClient
+import com.aiprofessor.infrastructure.openai.OpenAiApiClient
 import com.aiprofessor.infrastructure.util.PdfUtils
 import com.aiprofessor.infrastructure.util.PromptLoader
 import io.mockk.coEvery
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import java.util.Base64
 
 class DocumentProcessorImplTest {
-    private lateinit var claudeApiClient: ClaudeApiClient
+    private lateinit var openAiApiClient: OpenAiApiClient
     private lateinit var pdfUtils: PdfUtils
     private lateinit var promptLoader: PromptLoader
     private lateinit var documentHistoryRepository: DocumentHistoryRepository
@@ -37,7 +37,7 @@ class DocumentProcessorImplTest {
 
     @BeforeEach
     fun setup() {
-        claudeApiClient = mockk()
+        openAiApiClient = mockk()
         pdfUtils = mockk()
         promptLoader = mockk()
         documentHistoryRepository = mockk()
@@ -48,7 +48,7 @@ class DocumentProcessorImplTest {
 
         documentProcessor =
             DocumentProcessorImpl(
-                claudeApiClient = claudeApiClient,
+                openAiApiClient = openAiApiClient,
                 pdfUtils = pdfUtils,
                 promptLoader = promptLoader,
                 documentHistoryRepository = documentHistoryRepository,
@@ -69,7 +69,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -89,7 +89,7 @@ class DocumentProcessorImplTest {
 
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -122,7 +122,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -142,7 +142,7 @@ class DocumentProcessorImplTest {
 
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -175,7 +175,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
                     pdfBase64 = testPdfBase64,
@@ -191,7 +191,7 @@ class DocumentProcessorImplTest {
             // Then
             assertEquals(testResultBase64, response.resultPdfBase64)
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
                     pdfBase64 = testPdfBase64,
@@ -214,7 +214,7 @@ class DocumentProcessorImplTest {
             every { pdfUtils.base64ToPdfBytes(base64WithPrefix) } returns "test pdf".toByteArray()
             // Should be cleaned
             coEvery {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -230,7 +230,7 @@ class DocumentProcessorImplTest {
             // Then
             assertEquals(testResultBase64, response.resultPdfBase64)
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessage(
+                openAiApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
