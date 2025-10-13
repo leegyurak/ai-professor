@@ -55,6 +55,13 @@ jobs:
             --icon=assets/icon.icns \
             --app-bundle-id=com.aiprofessor.desktop
 
+          # Remove quarantine attributes to allow execution
+          for dir in release/AI\ Professor-darwin-*; do
+            if [ -d "$dir" ]; then
+              xattr -cr "$dir/AI Professor.app"
+            fi
+          done
+
       - name: Package application (Windows)
         if: matrix.os == 'windows-latest'
         run: |
