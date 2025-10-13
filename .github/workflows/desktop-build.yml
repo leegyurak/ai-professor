@@ -55,10 +55,11 @@ jobs:
             --icon=assets/icon.icns \
             --app-bundle-id=com.aiprofessor.desktop
 
-          # Remove quarantine attributes to allow execution
+          # Ad-hoc sign the app to prevent "damaged" error
           for dir in release/AI\ Professor-darwin-*; do
             if [ -d "$dir" ]; then
-              xattr -cr "$dir/AI Professor.app"
+              echo "Signing $dir/AI Professor.app"
+              codesign --force --deep --sign - "$dir/AI Professor.app"
             fi
           done
 

@@ -11,7 +11,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:renderer && npm run build:electron",
     "start": "npm run build && electron .",
-    "package:mac": "npm run build && electron-packager . 'AI Professor' --platform=darwin --arch=arm64 --out=release --overwrite --app-bundle-id=com.aiprofessor.desktop && xattr -cr 'release/AI Professor-darwin-arm64/AI Professor.app'"
+    "package:mac": "npm run build && electron-packager . 'AI Professor' --platform=darwin --arch=arm64 --out=release --overwrite --app-bundle-id=com.aiprofessor.desktop && codesign --force --deep --sign - 'release/AI Professor-darwin-arm64/AI Professor.app'"
   },
   "dependencies": {
     "pdfjs-dist": "^5.4.296",
