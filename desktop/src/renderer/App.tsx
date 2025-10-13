@@ -34,7 +34,7 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
   };
 
   return (
-    <div className="container center" style={{ height: '100%', background: 'var(--panel)' }}>
+    <div className="container center" style={{ height: '100%', background: '#ffffff' }}>
       <div className="card" style={{ width: 400, boxShadow: '0 4px 12px var(--shadow-md)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
@@ -46,7 +46,7 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
           placeholder="👤 아이디"
           value={username}
           onChange={e => setUsername(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
         />
         <div className="space" />
         <input
@@ -55,7 +55,7 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
           placeholder="🔒 비밀번호"
           value={password}
           onChange={e => setPassword(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
         />
         {err && (
           <>
@@ -543,7 +543,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
       {/* Loading Overlay */}
       {loading && (
         <div className="overlay">
-          <div className="card center" style={{ gap: 16, padding: 40, boxShadow: '0 8px 24px var(--shadow-lg)', flexDirection: 'column', position: 'relative' }}>
+          <div className="card center" style={{ gap: 16, padding: 40, boxShadow: '0 8px 24px var(--shadow-lg)', flexDirection: 'column', position: 'relative', minWidth: 500 }}>
             {downloadComplete && (
               <button
                 onClick={() => {
@@ -579,7 +579,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
               <>
                 <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
                 <div style={{ fontSize: 16, fontWeight: 500 }}>{LOADING_MESSAGES[loadingMessageIndex]}</div>
-                <div className="small" style={{ color: 'var(--muted)' }}>⏱️ 최대 15분 정도 걸리니 바람이라도<br/>쐬고 오는 거 어때요?</div>
+                <div className="small" style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>⏱️ 최대 15분 정도 걸리니 바람이라도 쐬고 오는 거 어때요?</div>
               </>
             ) : (
               <>
