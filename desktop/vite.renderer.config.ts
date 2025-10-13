@@ -6,10 +6,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     root: path.resolve(__dirname, 'src/renderer'),
+    base: './',
     plugins: [react()],
     define: {
       'process.env': {
-        VITE_BACKEND_URL: env.VITE_BACKEND_URL || ''
+        VITE_BACKEND_URL: env.VITE_BACKEND_URL || '',
+        VITE_APP_ELECTRON_TOKEN: env.VITE_APP_ELECTRON_TOKEN || ''
       }
     },
     build: {

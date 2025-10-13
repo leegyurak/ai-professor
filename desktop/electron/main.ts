@@ -73,7 +73,9 @@ async function createWindow() {
       app.quit();
     }
   } else {
-    await win.loadFile(path.join(__dirname, '../dist/renderer/index.html'));
+    const indexPath = path.join(__dirname, '../dist/renderer/index.html');
+    console.log('Loading production build from:', indexPath);
+    await win.loadFile(indexPath);
   }
 }
 
