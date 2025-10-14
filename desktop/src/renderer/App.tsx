@@ -34,7 +34,7 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
   };
 
   return (
-    <div className="container center" style={{ height: '100%', background: '#ffffff' }}>
+    <div className="center" style={{ height: '100%', background: '#ffffff' }}>
       <div className="card" style={{ width: 400, boxShadow: '0 4px 12px var(--shadow-md)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
