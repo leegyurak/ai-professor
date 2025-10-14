@@ -69,7 +69,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -89,7 +89,7 @@ class DocumentProcessorImplTest {
 
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -122,7 +122,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -142,7 +142,7 @@ class DocumentProcessorImplTest {
 
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -175,7 +175,7 @@ class DocumentProcessorImplTest {
 
             every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
             coEvery {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
                     pdfBase64 = testPdfBase64,
@@ -191,7 +191,7 @@ class DocumentProcessorImplTest {
             // Then
             assertEquals(testResultBase64, response.resultPdfBase64)
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
                     pdfBase64 = testPdfBase64,
@@ -214,7 +214,7 @@ class DocumentProcessorImplTest {
             every { pdfUtils.base64ToPdfBytes(base64WithPrefix) } returns "test pdf".toByteArray()
             // Should be cleaned
             coEvery {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
@@ -230,7 +230,7 @@ class DocumentProcessorImplTest {
             // Then
             assertEquals(testResultBase64, response.resultPdfBase64)
             coVerify(exactly = 1) {
-                claudeApiClient.sendMessageWithTwoPass(
+                claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
                     pdfBase64 = testPdfBase64,
