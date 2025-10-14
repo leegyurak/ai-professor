@@ -8,6 +8,8 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -37,7 +39,7 @@ open class ClaudeApiClient(
     /**
      * 2-Pass approach to avoid max token limits
      * Pass 1: Get outline/table of contents (300-600 tokens)
-     * Pass 2+: Get detailed content for each section (no token limit per section)
+     * Pass 2+: Get detailed content for each section (1800 tokens per section, async)
      */
     open suspend fun sendMessageWithTwoPass(
         systemPrompt: String,
@@ -67,23 +69,34 @@ open class ClaudeApiClient(
                     return@withContext sendMessageInternal(systemPrompt, userPrompt, pdfBase64, maxTokens)
                 }
 
-                // Pass 2+: Get detailed content for each section
+                // Pass 2+: Get detailed content for each section in parallel (async)
+                val sectionContentDeferred =
+                    sections.mapIndexed { index, section ->
+                        async {
+                            val sectionPrompt =
+                                """
+                                $userPrompt
+
+                                Focus ONLY on this section: "$section"
+                                Provide detailed analysis and content for this section only.
+                                Section ${index + 1} of ${sections.size}.
+                                """.trimIndent()
+
+                            val sectionContent = sendMessageInternal(systemPrompt, sectionPrompt, pdfBase64, 1800)
+                            Pair(section, sectionContent)
+                        }
+                    }
+
+                // Wait for all async requests to complete
+                val sectionResults = sectionContentDeferred.awaitAll()
+
+                // Build final result
                 val sectionContents = mutableListOf<String>()
                 sectionContents.add("# Document Analysis\n\n")
                 sectionContents.add("## Table of Contents\n$outline\n\n")
 
-                for ((index, section) in sections.withIndex()) {
-                    val sectionPrompt =
-                        """
-                        $userPrompt
-
-                        Focus ONLY on this section: "$section"
-                        Provide detailed analysis and content for this section only.
-                        Section ${index + 1} of ${sections.size}.
-                        """.trimIndent()
-
-                    val sectionContent = sendMessageInternal(systemPrompt, sectionPrompt, pdfBase64, maxTokens)
-                    sectionContents.add("## $section\n\n$sectionContent\n\n")
+                sectionResults.forEach { (section, content) ->
+                    sectionContents.add("## $section\n\n$content\n\n")
                 }
 
                 sectionContents.joinToString("\n")
