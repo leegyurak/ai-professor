@@ -6,14 +6,14 @@ import com.aiprofessor.domain.document.DocumentProcessor
 import com.aiprofessor.domain.document.DocumentRequest
 import com.aiprofessor.domain.document.DocumentResponse
 import com.aiprofessor.domain.document.ProcessingType
-import com.aiprofessor.infrastructure.openai.OpenAiApiClient
+import com.aiprofessor.infrastructure.claude.ClaudeApiClient
 import com.aiprofessor.infrastructure.util.PdfUtils
 import com.aiprofessor.infrastructure.util.PromptLoader
 import org.springframework.stereotype.Service
 
 @Service
 class DocumentProcessorImpl(
-    private val openAiApiClient: OpenAiApiClient,
+    private val claudeApiClient: ClaudeApiClient,
     private val pdfUtils: PdfUtils,
     private val promptLoader: PromptLoader,
     private val documentHistoryRepository: DocumentHistoryRepository,
@@ -48,10 +48,10 @@ class DocumentProcessorImpl(
         // Clean base64 by removing data URL prefix if present
         val cleanBase64 = cleanBase64String(request.pdfBase64)
 
-        // Send to OpenAI API
+        // Send to Claude API using 2-pass approach to avoid token limits
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
-            openAiApiClient.sendMessage(
+            claudeApiClient.sendMessageWithTwoPass(
                 systemPrompt = summaryPrompt,
                 userPrompt = userPrompt,
                 pdfBase64 = cleanBase64,
@@ -80,10 +80,10 @@ class DocumentProcessorImpl(
         // Clean base64 by removing data URL prefix if present
         val cleanBase64 = cleanBase64String(request.pdfBase64)
 
-        // Send to OpenAI API
+        // Send to Claude API using 2-pass approach to avoid token limits
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
-            openAiApiClient.sendMessage(
+            claudeApiClient.sendMessageWithTwoPass(
                 systemPrompt = examQuestionsPrompt,
                 userPrompt = userPrompt,
                 pdfBase64 = cleanBase64,
