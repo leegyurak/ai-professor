@@ -45,6 +45,13 @@ openai:
     model: gpt-5
     max-tokens: 128000
 
+claude:
+  api:
+    key: test-mock-api-key
+    url: https://api.anthropic.com/v1/messages
+    model: claude-sonnet-4-5
+    max-tokens: 64000
+
 session:
   max-concurrent-sessions: 1
 
@@ -91,6 +98,13 @@ openai:
     url: https://api.openai.com/v1/responses
     model: gpt-5
     max-tokens: 128000
+
+claude:
+  api:
+    key: ${CLAUDE_API_KEY:dev-mock-api-key}
+    url: https://api.anthropic.com/v1/messages
+    model: claude-sonnet-4-5
+    max-tokens: 64000
 
 session:
   max-concurrent-sessions: 1
@@ -143,6 +157,13 @@ openai:
     url: https://api.openai.com/v1/responses
     model: gpt-5
     max-tokens: 128000
+
+claude:
+  api:
+    key: ${CLAUDE_API_KEY}
+    url: https://api.anthropic.com/v1/messages
+    model: claude-sonnet-4-5
+    max-tokens: 64000
 
 session:
   max-concurrent-sessions: 1
