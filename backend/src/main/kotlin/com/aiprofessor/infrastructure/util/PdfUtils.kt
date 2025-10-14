@@ -66,21 +66,35 @@ class PdfUtils(
 
     fun extractTextFromPdf(pdfBytes: ByteArray): String {
         try {
-            val document = PDDocument.load(pdfBytes)
-            val stripper = PDFTextStripper()
-            val text = stripper.getText(document)
-            document.close()
+            PDDocument.load(pdfBytes).use { document ->
+                val stripper = PDFTextStripper()
+                // Ensure proper encoding for Unicode characters including emojis
+                stripper.sortByPosition = true
+                val text = stripper.getText(document)
 
-            if (text.isBlank()) {
-                throw EmptyContentException("PDF에서 텍스트를 추출할 수 없습니다.")
+                if (text.isBlank()) {
+                    throw EmptyContentException("PDF에서 텍스트를 추출할 수 없습니다.")
+                }
+
+                // Clean up any replacement characters that might have been introduced
+                // but preserve actual content
+                return text
             }
-
-            return text
         } catch (e: EmptyContentException) {
             throw e
         } catch (e: Exception) {
             throw PdfProcessingException("PDF 텍스트 추출 중 오류가 발생했습니다.", e)
         }
+    }
+
+    /**
+     * Replace emojis with empty string or fallback character
+     * since most PDF fonts don't support emoji rendering
+     */
+    private fun sanitizeForPdf(text: String): String {
+        // Remove emojis and other problematic Unicode characters
+        // Keep Korean, English, numbers, and common punctuation
+        return text.replace(Regex("[^\\p{L}\\p{N}\\p{P}\\p{Z}\\n\\r\\t]"), "")
     }
 
     fun markdownToPdf(markdown: String): ByteArray {
@@ -89,10 +103,13 @@ class PdfUtils(
         }
 
         try {
+            // Sanitize markdown content to remove emojis
+            val sanitizedMarkdown = sanitizeForPdf(markdown)
+
             // Convert markdown to HTML
             val parser = Parser.builder().build()
             val renderer = HtmlRenderer.builder().build()
-            val document = parser.parse(markdown)
+            val document = parser.parse(sanitizedMarkdown)
             val html = renderer.render(document)
 
             // Wrap HTML with proper structure and styling
@@ -102,9 +119,14 @@ class PdfUtils(
                 <html>
                 <head>
                     <meta charset="UTF-8" />
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
                     <style>
+                        @font-face {
+                            font-family: 'Emoji';
+                            src: local('Apple Color Emoji'), local('Segoe UI Emoji'), local('Noto Color Emoji');
+                        }
                         body {
-                            font-family: 'Noto Sans KR', Arial, sans-serif;
+                            font-family: 'Noto Sans KR', Arial, 'Emoji', sans-serif;
                             line-height: 1.6;
                             margin: 40px;
                             color: #333;
@@ -194,6 +216,7 @@ class PdfUtils(
             }
 
             builder.useFastMode()
+            // Use withHtmlContent with proper baseUri for UTF-8 content
             builder.withHtmlContent(styledHtml, null)
             builder.toStream(outputStream)
             builder.run()

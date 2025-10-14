@@ -48,10 +48,10 @@ class DocumentProcessorImpl(
         // Clean base64 by removing data URL prefix if present
         val cleanBase64 = cleanBase64String(request.pdfBase64)
 
-        // Send to Claude API using 2-pass approach to avoid token limits
+        // Send to Claude API
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
-            claudeApiClient.sendMessageWithTwoPass(
+            claudeApiClient.sendMessage(
                 systemPrompt = summaryPrompt,
                 userPrompt = userPrompt,
                 pdfBase64 = cleanBase64,
@@ -80,10 +80,10 @@ class DocumentProcessorImpl(
         // Clean base64 by removing data URL prefix if present
         val cleanBase64 = cleanBase64String(request.pdfBase64)
 
-        // Send to Claude API using 2-pass approach to avoid token limits
+        // Send to Claude API
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
-            claudeApiClient.sendMessageWithTwoPass(
+            claudeApiClient.sendMessage(
                 systemPrompt = examQuestionsPrompt,
                 userPrompt = userPrompt,
                 pdfBase64 = cleanBase64,

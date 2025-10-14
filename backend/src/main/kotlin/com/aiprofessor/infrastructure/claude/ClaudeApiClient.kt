@@ -8,8 +8,6 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -36,124 +34,17 @@ open class ClaudeApiClient(
             .writeTimeout(120, TimeUnit.SECONDS)
             .build()
 
-    /**
-     * 2-Pass approach to avoid max token limits
-     * Pass 1: Get outline/table of contents (300-600 tokens)
-     * Pass 2+: Get detailed content for each section (1800 tokens per section, async)
-     */
-    open suspend fun sendMessageWithTwoPass(
-        systemPrompt: String,
-        userPrompt: String,
-        pdfBase64: String,
-    ): String =
-        withContext(Dispatchers.IO) {
-            try {
-                // Pass 1: Get outline with limited tokens (300-600)
-                val outlinePrompt =
-                    """
-                    $userPrompt
-
-                    Please provide ONLY a concise outline or table of contents.
-                    List the main sections/topics that should be covered.
-                    Do NOT include detailed content yet.
-                    Format as a numbered list of section titles.
-                    """.trimIndent()
-
-                val outline = sendMessageInternal(systemPrompt, outlinePrompt, pdfBase64, 600)
-
-                // Parse sections from outline (assuming numbered list format)
-                val sections = parseSectionsFromOutline(outline)
-
-                if (sections.isEmpty()) {
-                    // Fallback to single pass if outline parsing fails
-                    return@withContext sendMessageInternal(systemPrompt, userPrompt, pdfBase64, maxTokens)
-                }
-
-                // Pass 2+: Get detailed content for each section in parallel (async)
-                val sectionContentDeferred =
-                    sections.mapIndexed { index, section ->
-                        async {
-                            val sectionPrompt =
-                                """
-                                $userPrompt
-
-                                Focus ONLY on this section: "$section"
-                                Provide detailed analysis and content for this section only.
-                                Section ${index + 1} of ${sections.size}.
-                                """.trimIndent()
-
-                            val sectionContent = sendMessageInternal(systemPrompt, sectionPrompt, pdfBase64, 1800)
-                            Pair(section, sectionContent)
-                        }
-                    }
-
-                // Wait for all async requests to complete
-                val sectionResults = sectionContentDeferred.awaitAll()
-
-                // Build final result
-                val sectionContents = mutableListOf<String>()
-                sectionContents.add("# Document Analysis\n\n")
-                sectionContents.add("## Table of Contents\n$outline\n\n")
-
-                sectionResults.forEach { (section, content) ->
-                    sectionContents.add("## $section\n\n$content\n\n")
-                }
-
-                sectionContents.joinToString("\n")
-            } catch (e: ClaudeApiException) {
-                throw e
-            } catch (e: ClaudeApiRateLimitException) {
-                throw e
-            } catch (e: ClaudeApiTimeoutException) {
-                throw e
-            } catch (e: ClaudeApiInvalidResponseException) {
-                throw e
-            } catch (e: Exception) {
-                throw ClaudeApiException("Claude API 요청 중 예상치 못한 오류가 발생했습니다.", e)
-            }
-        }
-
-    private fun parseSectionsFromOutline(outline: String): List<String> {
-        // Parse numbered list (e.g., "1. Section Title", "2. Another Section")
-        val sections = mutableListOf<String>()
-        val lines = outline.lines()
-
-        for (line in lines) {
-            val trimmed = line.trim()
-            // Match patterns like "1. Title", "1) Title", "- Title", "* Title"
-            val sectionMatch = Regex("""^[\d\-*•]+[\.)]\s*(.+)$""").find(trimmed)
-            if (sectionMatch != null) {
-                sections.add(sectionMatch.groupValues[1].trim())
-            } else if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
-                // Include non-empty lines that aren't headers
-                sections.add(trimmed)
-            }
-        }
-
-        return sections
-    }
-
-    /**
-     * Legacy single-pass method for backward compatibility
-     */
     open suspend fun sendMessage(
         systemPrompt: String,
         userPrompt: String,
         pdfBase64: String,
-    ): String = sendMessageInternal(systemPrompt, userPrompt, pdfBase64, maxTokens)
-
-    private suspend fun sendMessageInternal(
-        systemPrompt: String,
-        userPrompt: String,
-        pdfBase64: String,
-        tokenLimit: Int,
     ): String =
         withContext(Dispatchers.IO) {
             try {
                 val request =
                     ClaudeRequest(
                         model = model,
-                        maxTokens = tokenLimit,
+                        maxTokens = maxTokens,
                         system = systemPrompt,
                         messages =
                             listOf(
