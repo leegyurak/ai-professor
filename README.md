@@ -42,9 +42,7 @@ AI Professor는 학생들의 효율적인 학습을 돕기 위해 개발된 데�
 
 [![Spring Boot][Spring-badge]][Spring-url]
 [![Kotlin][Kotlin-badge]][Kotlin-url]
-[![React][React-badge]][React-url]
-[![TypeScript][TypeScript-badge]][TypeScript-url]
-[![Electron][Electron-badge]][Electron-url]<br \>
+[![Electron][Electron-badge]][Electron-url]
 [![MySQL][MySQL-badge]][MySQL-url]
 [![Redis][Redis-badge]][Redis-url]
 [![Docker][Docker-badge]][Docker-url]
