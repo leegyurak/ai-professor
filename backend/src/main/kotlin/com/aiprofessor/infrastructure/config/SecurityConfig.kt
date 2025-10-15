@@ -54,9 +54,9 @@ class SecurityConfig(
                 configuration.maxAge = 3600L
             }
             "prod" -> {
-                // Production: Allow Electron app only
+                // Production: Allow Electron app and ai-professor.me domain
                 // Electron app should send requests with custom origin
-                configuration.allowedOriginPatterns = listOf("app://*", "file://*")
+                configuration.allowedOriginPatterns = listOf("app://*", "file://*", "https://ai-professor.me", "https://*.ai-professor.me")
                 configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 configuration.allowedHeaders = listOf("Authorization", "Content-Type", "X-App-Token")
                 configuration.allowCredentials = true

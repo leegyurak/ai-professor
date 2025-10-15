@@ -1,0 +1,77 @@
+name: Build and Push Frontend Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      vite_backend_url:
+        description: 'Backend URL (VITE_BACKEND_URL)'
+        required: false
+      vite_app_electron_token:
+        description: 'Electron Token (VITE_APP_ELECTRON_TOKEN)'
+        required: false
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor_fe
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Set environment variables
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VITE_BACKEND_URL=${{ github.event.inputs.vite_backend_url }}" >> $GITHUB_ENV
+            echo "VITE_APP_ELECTRON_TOKEN=${{ github.event.inputs.vite_app_electron_token }}" >> $GITHUB_ENV
+          else
+            echo "VITE_BACKEND_URL=${{ secrets.VITE_BACKEND_URL }}" >> $GITHUB_ENV
+            echo "VITE_APP_ELECTRON_TOKEN=${{ secrets.VITE_APP_ELECTRON_TOKEN }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_BACKEND_URL=${{ env.VITE_BACKEND_URL }}
+            VITE_APP_ELECTRON_TOKEN=${{ env.VITE_APP_ELECTRON_TOKEN }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      - name: Image digest
+        run: echo ${{ steps.meta.outputs.tags }}
