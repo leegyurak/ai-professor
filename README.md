@@ -42,8 +42,6 @@ AI Professor는 학생들의 효율적인 학습을 돕기 위해 개발된 데�
 
 [![Spring Boot][Spring-badge]][Spring-url]
 [![Kotlin][Kotlin-badge]][Kotlin-url]
-[![React][React-badge]][React-url]
-[![TypeScript][TypeScript-badge]][TypeScript-url]
 [![Electron][Electron-badge]][Electron-url]
 [![MySQL][MySQL-badge]][MySQL-url]
 [![Redis][Redis-badge]][Redis-url]
@@ -402,10 +400,6 @@ npm run dev  # Vite dev server
 - [ ] PDF 하이라이트 기능
 - [ ] 음성 요약 (TTS)
 - [ ] 모바일 앱 (React Native)
-
-## Contact
-
-Project Link: [https://github.com/yourusername/ai-professor](https://github.com/yourusername/ai-professor)
 
 ---
 
