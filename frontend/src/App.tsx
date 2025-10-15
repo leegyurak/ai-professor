@@ -130,7 +130,6 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; base64: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
   const canSend = useMemo(() => prompt.trim().length > 0 && !!file, [prompt, file]);
@@ -162,7 +161,6 @@ function MainScreen({ username, token }: { username: string; token: string }) {
           } else {
             setServerHistory(cacheData.content);
           }
-          setTotalPages(cacheData.totalPages);
           setHistoryPage(page);
           setHasMore(page + 1 < cacheData.totalPages);
           return;
@@ -195,7 +193,6 @@ function MainScreen({ username, token }: { username: string; token: string }) {
       } else {
         setServerHistory(res.content);
       }
-      setTotalPages(res.totalPages);
       setHistoryPage(page);
       setHasMore(page + 1 < res.totalPages);
     } catch (e: any) {
