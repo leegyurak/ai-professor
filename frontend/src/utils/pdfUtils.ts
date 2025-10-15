@@ -76,20 +76,12 @@ export function downloadBase64Pdf(fileName: string, base64: string): void {
  */
 export async function downloadPdfFromUrl(fileName: string, url: string): Promise<void> {
   try {
-    // Fetch the PDF file from URL
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    // Convert response to blob
-    const blob = await response.blob();
-
-    // Create download link
-    const blobUrl = URL.createObjectURL(blob);
+    // For CDN URLs, use direct download link instead of fetch to avoid CORS
     const link = document.createElement('a');
-    link.href = blobUrl;
+    link.href = url;
     link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
 
     // Trigger download
     document.body.appendChild(link);
@@ -97,7 +89,6 @@ export async function downloadPdfFromUrl(fileName: string, url: string): Promise
 
     // Cleanup
     document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.error('Failed to download PDF from URL:', error);
     throw new Error('PDF 다운로드에 실패했습니다.');
