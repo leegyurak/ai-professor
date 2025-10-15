@@ -10,15 +10,17 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
  * Convert File to base64 string
  */
 export async function fileToBase64(file: File): Promise<string> {
-  const buf = await file.arrayBuffer();
-  let binary = '';
-  const bytes = new Uint8Array(buf);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk) as any);
-  }
-  return btoa(binary);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
@@ -65,6 +67,39 @@ export function downloadBase64Pdf(fileName: string, base64: string): void {
     URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Failed to download PDF:', error);
+    throw new Error('PDF 다운로드에 실패했습니다.');
+  }
+}
+
+/**
+ * Download PDF from URL
+ */
+export async function downloadPdfFromUrl(fileName: string, url: string): Promise<void> {
+  try {
+    // Fetch the PDF file from URL
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Convert response to blob
+    const blob = await response.blob();
+
+    // Create download link
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Failed to download PDF from URL:', error);
     throw new Error('PDF 다운로드에 실패했습니다.');
   }
 }

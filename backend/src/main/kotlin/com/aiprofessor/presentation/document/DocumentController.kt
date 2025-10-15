@@ -5,6 +5,7 @@ import com.aiprofessor.domain.document.DocumentProcessor
 import com.aiprofessor.domain.document.DocumentRequest
 import com.aiprofessor.domain.document.ProcessingType
 import com.aiprofessor.domain.exception.UnauthorizedException
+import com.aiprofessor.infrastructure.util.FileStorageUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import kotlinx.coroutines.runBlocking
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController
 class DocumentController(
     private val documentProcessor: DocumentProcessor,
     private val documentHistoryService: DocumentHistoryService,
+    private val fileStorageUtils: FileStorageUtils,
 ) {
     @PostMapping("/summary")
     fun generateSummary(
@@ -43,7 +45,7 @@ class DocumentController(
 
             ResponseEntity.ok(
                 DocumentResponseDto(
-                    resultPdfBase64 = response.resultPdfBase64,
+                    resultPdfUrl = response.resultPdfUrl,
                 ),
             )
         }
@@ -66,7 +68,7 @@ class DocumentController(
 
             ResponseEntity.ok(
                 DocumentResponseDto(
-                    resultPdfBase64 = response.resultPdfBase64,
+                    resultPdfUrl = response.resultPdfUrl,
                 ),
             )
         }
@@ -84,7 +86,7 @@ class DocumentController(
 
         val response =
             PagedDocumentHistoryResponseDto(
-                content = historyPage.content.map { it.toResponseDto() },
+                content = historyPage.content.map { it.toResponseDto(fileStorageUtils) },
                 pageNumber = historyPage.number,
                 pageSize = historyPage.size,
                 totalElements = historyPage.totalElements,
@@ -112,5 +114,5 @@ data class DocumentRequestDto(
 )
 
 data class DocumentResponseDto(
-    val resultPdfBase64: String,
+    val resultPdfUrl: String,
 )

@@ -2,14 +2,15 @@ package com.aiprofessor.presentation.document
 
 import com.aiprofessor.domain.document.DocumentHistory
 import com.aiprofessor.domain.document.ProcessingType
+import com.aiprofessor.infrastructure.util.FileStorageUtils
 import java.time.LocalDateTime
 
 data class DocumentHistoryResponseDto(
     val id: Long,
     val processingType: ProcessingType,
     val userPrompt: String?,
-    val inputBase64: String,
-    val outputBase64: String,
+    val inputUrl: String,
+    val outputUrl: String,
     val createdAt: LocalDateTime,
 )
 
@@ -22,12 +23,12 @@ data class PagedDocumentHistoryResponseDto(
     val isLast: Boolean,
 )
 
-fun DocumentHistory.toResponseDto() =
+fun DocumentHistory.toResponseDto(fileStorageUtils: FileStorageUtils) =
     DocumentHistoryResponseDto(
         id = this.id!!,
         processingType = this.processingType,
         userPrompt = this.userPrompt,
-        inputBase64 = this.inputBase64,
-        outputBase64 = this.outputBase64,
+        inputUrl = fileStorageUtils.filePathToUrl(this.inputFilePath),
+        outputUrl = fileStorageUtils.filePathToUrl(this.outputFilePath),
         createdAt = this.createdAt,
     )

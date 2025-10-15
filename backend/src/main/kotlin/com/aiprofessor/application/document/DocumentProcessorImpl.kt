@@ -6,7 +6,9 @@ import com.aiprofessor.domain.document.DocumentProcessor
 import com.aiprofessor.domain.document.DocumentRequest
 import com.aiprofessor.domain.document.DocumentResponse
 import com.aiprofessor.domain.document.ProcessingType
+import com.aiprofessor.domain.user.UserRepository
 import com.aiprofessor.infrastructure.claude.ClaudeApiClient
+import com.aiprofessor.infrastructure.util.FileStorageUtils
 import com.aiprofessor.infrastructure.util.PdfUtils
 import com.aiprofessor.infrastructure.util.PromptLoader
 import org.springframework.stereotype.Service
@@ -17,7 +19,8 @@ class DocumentProcessorImpl(
     private val pdfUtils: PdfUtils,
     private val promptLoader: PromptLoader,
     private val documentHistoryRepository: DocumentHistoryRepository,
-    private val cacheService: com.aiprofessor.infrastructure.document.DocumentHistoryCacheService,
+    private val fileStorageUtils: FileStorageUtils,
+    private val userRepository: UserRepository,
 ) : DocumentProcessor {
     companion object {
         private const val DEFAULT_USER_PROMPT = "Please analyze this document."
@@ -42,87 +45,126 @@ class DocumentProcessorImpl(
     }
 
     override suspend fun processSummary(request: DocumentRequest): DocumentResponse {
-        // Validate PDF size
-        pdfUtils.base64ToPdfBytes(request.pdfBase64)
+        // Get user info
+        val user =
+            userRepository.findById(request.userId)
+                ?: throw IllegalArgumentException("User not found with id: ${request.userId}")
 
-        // Clean base64 by removing data URL prefix if present
+        // Clean base64 and convert to PDF bytes
         val cleanBase64 = cleanBase64String(request.pdfBase64)
+        val inputPdfBytes = pdfUtils.base64ToPdfBytes(cleanBase64)
 
-        // Send to Claude API
+        // Log PDF size for debugging
+        val pdfSizeMB = inputPdfBytes.size / (1024.0 * 1024.0)
+        println("Processing PDF size: %.2f MB (%d bytes)".format(pdfSizeMB, inputPdfBytes.size))
+
+        // Save input PDF to file storage
+        val inputFilePath = fileStorageUtils.saveInputPdf(user.username, inputPdfBytes)
+
+        // Extract text from PDF
+        println("Extracting text from PDF...")
+        val extractedText = pdfUtils.extractTextFromPdf(inputPdfBytes)
+        println("Extracted text length: ${extractedText.length} characters")
+
+        // Send to Claude API with extracted text
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
             claudeApiClient.sendMessage(
                 systemPrompt = summaryPrompt,
                 userPrompt = userPrompt,
-                pdfBase64 = cleanBase64,
+                extractedText = extractedText,
             )
 
         // Convert markdown to PDF
         val resultPdfBytes = pdfUtils.markdownToPdf(markdownResponse)
-        val resultBase64 = pdfUtils.pdfBytesToBase64(resultPdfBytes)
+
+        // Save output PDF to file storage
+        val outputFilePath = fileStorageUtils.saveOutputPdf(user.username, ProcessingType.SUMMARY.name, resultPdfBytes)
+
+        // Convert file paths to URLs
+        val inputUrl = fileStorageUtils.filePathToUrl(inputFilePath)
+        val outputUrl = fileStorageUtils.filePathToUrl(outputFilePath)
 
         // Save history
         saveHistory(
             userId = request.userId,
             processingType = ProcessingType.SUMMARY,
             userPrompt = request.userPrompt,
-            inputBase64 = request.pdfBase64,
-            outputBase64 = resultBase64,
+            inputFilePath = inputFilePath,
+            outputFilePath = outputFilePath,
         )
 
-        return DocumentResponse(resultPdfBase64 = resultBase64)
+        return DocumentResponse(resultPdfUrl = outputUrl)
     }
 
     override suspend fun processExamQuestions(request: DocumentRequest): DocumentResponse {
-        // Validate PDF size
-        pdfUtils.base64ToPdfBytes(request.pdfBase64)
+        // Get user info
+        val user =
+            userRepository.findById(request.userId)
+                ?: throw IllegalArgumentException("User not found with id: ${request.userId}")
 
-        // Clean base64 by removing data URL prefix if present
+        // Clean base64 and convert to PDF bytes
         val cleanBase64 = cleanBase64String(request.pdfBase64)
+        val inputPdfBytes = pdfUtils.base64ToPdfBytes(cleanBase64)
 
-        // Send to Claude API
+        // Log PDF size for debugging
+        val pdfSizeMB = inputPdfBytes.size / (1024.0 * 1024.0)
+        println("Processing PDF size: %.2f MB (%d bytes)".format(pdfSizeMB, inputPdfBytes.size))
+
+        // Save input PDF to file storage
+        val inputFilePath = fileStorageUtils.saveInputPdf(user.username, inputPdfBytes)
+
+        // Extract text from PDF
+        println("Extracting text from PDF...")
+        val extractedText = pdfUtils.extractTextFromPdf(inputPdfBytes)
+        println("Extracted text length: ${extractedText.length} characters")
+
+        // Send to Claude API with extracted text
         val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
         val markdownResponse =
             claudeApiClient.sendMessage(
                 systemPrompt = examQuestionsPrompt,
                 userPrompt = userPrompt,
-                pdfBase64 = cleanBase64,
+                extractedText = extractedText,
             )
 
         // Convert markdown to PDF
         val resultPdfBytes = pdfUtils.markdownToPdf(markdownResponse)
-        val resultBase64 = pdfUtils.pdfBytesToBase64(resultPdfBytes)
+
+        // Save output PDF to file storage
+        val outputFilePath = fileStorageUtils.saveOutputPdf(user.username, ProcessingType.EXAM_QUESTIONS.name, resultPdfBytes)
+
+        // Convert file paths to URLs
+        val inputUrl = fileStorageUtils.filePathToUrl(inputFilePath)
+        val outputUrl = fileStorageUtils.filePathToUrl(outputFilePath)
 
         // Save history
         saveHistory(
             userId = request.userId,
             processingType = ProcessingType.EXAM_QUESTIONS,
             userPrompt = request.userPrompt,
-            inputBase64 = request.pdfBase64,
-            outputBase64 = resultBase64,
+            inputFilePath = inputFilePath,
+            outputFilePath = outputFilePath,
         )
 
-        return DocumentResponse(resultPdfBase64 = resultBase64)
+        return DocumentResponse(resultPdfUrl = outputUrl)
     }
 
     private fun saveHistory(
         userId: Long,
         processingType: ProcessingType,
         userPrompt: String?,
-        inputBase64: String,
-        outputBase64: String,
+        inputFilePath: String,
+        outputFilePath: String,
     ) {
         val history =
             DocumentHistory(
                 userId = userId,
                 processingType = processingType,
                 userPrompt = userPrompt,
-                inputBase64 = inputBase64,
-                outputBase64 = outputBase64,
+                inputFilePath = inputFilePath,
+                outputFilePath = outputFilePath,
             )
         documentHistoryRepository.save(history)
-
-        // Invalidate cache when new history is added
-        cacheService.invalidateCache(userId)
     }
 }

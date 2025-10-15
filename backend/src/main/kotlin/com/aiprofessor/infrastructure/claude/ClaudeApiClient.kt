@@ -4,7 +4,6 @@ import com.aiprofessor.domain.exception.ClaudeApiException
 import com.aiprofessor.domain.exception.ClaudeApiInvalidResponseException
 import com.aiprofessor.domain.exception.ClaudeApiRateLimitException
 import com.aiprofessor.domain.exception.ClaudeApiTimeoutException
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.Dispatchers
@@ -37,10 +36,22 @@ open class ClaudeApiClient(
     open suspend fun sendMessage(
         systemPrompt: String,
         userPrompt: String,
-        pdfBase64: String,
+        extractedText: String,
     ): String =
         withContext(Dispatchers.IO) {
             try {
+                // Combine extracted text with user prompt
+                val fullUserPrompt =
+                    """
+                    다음은 PDF 문서에서 추출한 내용입니다:
+
+                    ---
+                    $extractedText
+                    ---
+
+                    ${if (userPrompt.isNotBlank()) "추가 요청사항: $userPrompt" else ""}
+                    """.trimIndent()
+
                 val request =
                     ClaudeRequest(
                         model = model,
@@ -53,23 +64,13 @@ open class ClaudeApiClient(
                                     content =
                                         listOf(
                                             ContentBlock(
-                                                type = "document",
-                                                source =
-                                                    DocumentSource(
-                                                        type = "base64",
-                                                        mediaType = "application/pdf",
-                                                        data = pdfBase64,
-                                                    ),
-                                            ),
-                                            ContentBlock(
                                                 type = "text",
-                                                text = userPrompt,
+                                                text = fullUserPrompt,
                                             ),
                                         ),
                                 ),
                             ),
                     )
-
                 val requestBody =
                     objectMapper
                         .writeValueAsString(request)
@@ -154,18 +155,9 @@ data class Message(
     val content: List<ContentBlock>,
 )
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 data class ContentBlock(
     val type: String,
-    val source: DocumentSource? = null,
-    val text: String? = null,
-)
-
-data class DocumentSource(
-    val type: String,
-    @JsonProperty("media_type")
-    val mediaType: String,
-    val data: String,
+    val text: String,
 )
 
 data class ClaudeResponse(

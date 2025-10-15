@@ -4,7 +4,10 @@ import com.aiprofessor.domain.document.DocumentHistory
 import com.aiprofessor.domain.document.DocumentHistoryRepository
 import com.aiprofessor.domain.document.DocumentRequest
 import com.aiprofessor.domain.document.ProcessingType
+import com.aiprofessor.domain.user.User
+import com.aiprofessor.domain.user.UserRepository
 import com.aiprofessor.infrastructure.claude.ClaudeApiClient
+import com.aiprofessor.infrastructure.util.FileStorageUtils
 import com.aiprofessor.infrastructure.util.PdfUtils
 import com.aiprofessor.infrastructure.util.PromptLoader
 import io.mockk.coEvery
@@ -16,8 +19,10 @@ import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.time.LocalDateTime
 import java.util.Base64
 
 class DocumentProcessorImplTest {
@@ -25,15 +30,29 @@ class DocumentProcessorImplTest {
     private lateinit var pdfUtils: PdfUtils
     private lateinit var promptLoader: PromptLoader
     private lateinit var documentHistoryRepository: DocumentHistoryRepository
-    private lateinit var cacheService: com.aiprofessor.infrastructure.document.DocumentHistoryCacheService
+    private lateinit var fileStorageUtils: FileStorageUtils
+    private lateinit var userRepository: UserRepository
     private lateinit var documentProcessor: DocumentProcessorImpl
 
     private val testUserId = 1L
+    private val testUsername = "testuser"
+    private val testUser =
+        User(
+            id = testUserId,
+            username = testUsername,
+            password = "password",
+            email = "test@example.com",
+            createdAt = LocalDateTime.now(),
+        )
     private val testPdfBase64 = Base64.getEncoder().encodeToString("test pdf content".toByteArray())
+    private val testPdfBytes = "test pdf content".toByteArray()
+    private val testExtractedText = "Extracted text from PDF document."
     private val testUserPrompt = "Test prompt"
     private val testMarkdownResponse = "# Test Response\n\nThis is a test response."
     private val testResultPdfBytes = "result pdf content".toByteArray()
-    private val testResultBase64 = Base64.getEncoder().encodeToString(testResultPdfBytes)
+    private val testInputFilePath = "datas/input/testuser_123-456.pdf"
+    private val testOutputFilePath = "datas/output/testuser_789-abc_summary.pdf"
+    private val testOutputUrl = "https://test.example.com/datas/output/testuser_789-abc_summary.pdf"
 
     @BeforeEach
     fun setup() {
@@ -41,7 +60,8 @@ class DocumentProcessorImplTest {
         pdfUtils = mockk()
         promptLoader = mockk()
         documentHistoryRepository = mockk()
-        cacheService = mockk(relaxed = true)
+        fileStorageUtils = mockk()
+        userRepository = mockk()
 
         every { promptLoader.loadPrompt("summary.md") } returns "Summary prompt"
         every { promptLoader.loadPrompt("exam-questions.md") } returns "Exam questions prompt"
@@ -52,12 +72,13 @@ class DocumentProcessorImplTest {
                 pdfUtils = pdfUtils,
                 promptLoader = promptLoader,
                 documentHistoryRepository = documentHistoryRepository,
-                cacheService = cacheService,
+                fileStorageUtils = fileStorageUtils,
+                userRepository = userRepository,
             )
     }
 
     @Test
-    fun `processSummary should validate PDF, call Claude API, convert to PDF, and save history`() =
+    fun `processSummary should validate PDF, save files, call Claude API, and save history`() =
         runBlocking {
             // Given
             val request =
@@ -67,16 +88,21 @@ class DocumentProcessorImplTest {
                     userPrompt = testUserPrompt,
                 )
 
-            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
             coEvery {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             } returns testMarkdownResponse
             every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
-            every { pdfUtils.pdfBytesToBase64(testResultPdfBytes) } returns testResultBase64
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(testInputFilePath) } returns "https://test.example.com/$testInputFilePath"
+            every { fileStorageUtils.filePathToUrl(testOutputFilePath) } returns testOutputUrl
 
             val historySlot = slot<DocumentHistory>()
             every { documentHistoryRepository.save(capture(historySlot)) } answers { firstArg() }
@@ -85,18 +111,21 @@ class DocumentProcessorImplTest {
             val response = documentProcessor.processSummary(request)
 
             // Then
-            assertEquals(testResultBase64, response.resultPdfBase64)
+            assertEquals(testOutputUrl, response.resultPdfUrl)
 
+            verify(exactly = 1) { userRepository.findById(testUserId) }
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
+            verify(exactly = 1) { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) }
             coVerify(exactly = 1) {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             }
             verify(exactly = 1) { pdfUtils.markdownToPdf(testMarkdownResponse) }
-            verify(exactly = 1) { pdfUtils.pdfBytesToBase64(testResultPdfBytes) }
+            verify(exactly = 1) { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) }
+            verify(exactly = 1) { fileStorageUtils.filePathToUrl(testOutputFilePath) }
             verify(exactly = 1) { documentHistoryRepository.save(any()) }
 
             // Verify saved history
@@ -104,13 +133,13 @@ class DocumentProcessorImplTest {
             assertEquals(testUserId, savedHistory.userId)
             assertEquals(ProcessingType.SUMMARY, savedHistory.processingType)
             assertEquals(testUserPrompt, savedHistory.userPrompt)
-            assertEquals(testPdfBase64, savedHistory.inputBase64)
-            assertEquals(testResultBase64, savedHistory.outputBase64)
+            assertEquals(testInputFilePath, savedHistory.inputFilePath)
+            assertEquals(testOutputFilePath, savedHistory.outputFilePath)
             assertNotNull(savedHistory.createdAt)
         }
 
     @Test
-    fun `processExamQuestions should validate PDF, call Claude API, convert to PDF, and save history`() =
+    fun `processExamQuestions should validate PDF, save files, call Claude API, and save history`() =
         runBlocking {
             // Given
             val request =
@@ -120,16 +149,24 @@ class DocumentProcessorImplTest {
                     userPrompt = testUserPrompt,
                 )
 
-            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
+            val examOutputFilePath = "datas/output/testuser_789-abc_exam_questions.pdf"
+            val examOutputUrl = "https://test.example.com/$examOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
             coEvery {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             } returns testMarkdownResponse
             every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
-            every { pdfUtils.pdfBytesToBase64(testResultPdfBytes) } returns testResultBase64
+            every { fileStorageUtils.saveOutputPdf(testUsername, "EXAM_QUESTIONS", testResultPdfBytes) } returns examOutputFilePath
+            every { fileStorageUtils.filePathToUrl(testInputFilePath) } returns "https://test.example.com/$testInputFilePath"
+            every { fileStorageUtils.filePathToUrl(examOutputFilePath) } returns examOutputUrl
 
             val historySlot = slot<DocumentHistory>()
             every { documentHistoryRepository.save(capture(historySlot)) } answers { firstArg() }
@@ -138,18 +175,21 @@ class DocumentProcessorImplTest {
             val response = documentProcessor.processExamQuestions(request)
 
             // Then
-            assertEquals(testResultBase64, response.resultPdfBase64)
+            assertEquals(examOutputUrl, response.resultPdfUrl)
 
+            verify(exactly = 1) { userRepository.findById(testUserId) }
             verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
+            verify(exactly = 1) { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) }
             coVerify(exactly = 1) {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Exam questions prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             }
             verify(exactly = 1) { pdfUtils.markdownToPdf(testMarkdownResponse) }
-            verify(exactly = 1) { pdfUtils.pdfBytesToBase64(testResultPdfBytes) }
+            verify(exactly = 1) { fileStorageUtils.saveOutputPdf(testUsername, "EXAM_QUESTIONS", testResultPdfBytes) }
+            verify(exactly = 1) { fileStorageUtils.filePathToUrl(examOutputFilePath) }
             verify(exactly = 1) { documentHistoryRepository.save(any()) }
 
             // Verify saved history
@@ -157,8 +197,8 @@ class DocumentProcessorImplTest {
             assertEquals(testUserId, savedHistory.userId)
             assertEquals(ProcessingType.EXAM_QUESTIONS, savedHistory.processingType)
             assertEquals(testUserPrompt, savedHistory.userPrompt)
-            assertEquals(testPdfBase64, savedHistory.inputBase64)
-            assertEquals(testResultBase64, savedHistory.outputBase64)
+            assertEquals(testInputFilePath, savedHistory.inputFilePath)
+            assertEquals(examOutputFilePath, savedHistory.outputFilePath)
             assertNotNull(savedHistory.createdAt)
         }
 
@@ -173,28 +213,32 @@ class DocumentProcessorImplTest {
                     userPrompt = null,
                 )
 
-            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns "test pdf".toByteArray()
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
             coEvery {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             } returns testMarkdownResponse
             every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
-            every { pdfUtils.pdfBytesToBase64(testResultPdfBytes) } returns testResultBase64
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
             every { documentHistoryRepository.save(any()) } answers { firstArg() }
 
             // When
             val response = documentProcessor.processSummary(request)
 
             // Then
-            assertEquals(testResultBase64, response.resultPdfBase64)
+            assertEquals(testOutputUrl, response.resultPdfUrl)
             coVerify(exactly = 1) {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = "Please analyze this document.",
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             }
         }
@@ -211,30 +255,328 @@ class DocumentProcessorImplTest {
                     userPrompt = testUserPrompt,
                 )
 
-            every { pdfUtils.base64ToPdfBytes(base64WithPrefix) } returns "test pdf".toByteArray()
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
             // Should be cleaned
             coEvery {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             } returns testMarkdownResponse
             every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
-            every { pdfUtils.pdfBytesToBase64(testResultPdfBytes) } returns testResultBase64
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
             every { documentHistoryRepository.save(any()) } answers { firstArg() }
 
             // When
             val response = documentProcessor.processSummary(request)
 
             // Then
-            assertEquals(testResultBase64, response.resultPdfBase64)
+            assertEquals(testOutputUrl, response.resultPdfUrl)
             coVerify(exactly = 1) {
                 claudeApiClient.sendMessage(
                     systemPrompt = "Summary prompt",
                     userPrompt = testUserPrompt,
-                    pdfBase64 = testPdfBase64,
+                    extractedText = testExtractedText,
                 )
             }
+        }
+
+    @Test
+    fun `processSummary should throw exception when user not found`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns null
+
+            // When & Then
+            val exception =
+                org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                    runBlocking { documentProcessor.processSummary(request) }
+                }
+            assertTrue(exception.message!!.contains("User not found"))
+        }
+
+    @Test
+    fun `processExamQuestions should throw exception when user not found`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns null
+
+            // When & Then
+            val exception =
+                org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                    runBlocking { documentProcessor.processExamQuestions(request) }
+                }
+            assertTrue(exception.message!!.contains("User not found"))
+        }
+
+    @Test
+    fun `processSummary should handle file storage failure gracefully`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } throws
+                java.io.IOException("Disk full")
+
+            // When & Then
+            org.junit.jupiter.api.assertThrows<java.io.IOException> {
+                runBlocking { documentProcessor.processSummary(request) }
+            }
+        }
+
+    @Test
+    fun `processSummary should handle Claude API failure`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(any(), any(), any())
+            } throws RuntimeException("API Error")
+
+            // When & Then
+            org.junit.jupiter.api.assertThrows<RuntimeException> {
+                runBlocking { documentProcessor.processSummary(request) }
+            }
+        }
+
+    @Test
+    fun `processSummary should handle markdown to PDF conversion failure`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(any(), any(), any())
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } throws
+                RuntimeException("PDF conversion failed")
+
+            // When & Then
+            org.junit.jupiter.api.assertThrows<RuntimeException> {
+                runBlocking { documentProcessor.processSummary(request) }
+            }
+        }
+
+    @Test
+    fun `processSummary should handle database save failure`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(any(), any(), any())
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+            every { documentHistoryRepository.save(any()) } throws
+                RuntimeException("Database connection failed")
+
+            // When & Then
+            org.junit.jupiter.api.assertThrows<RuntimeException> {
+                runBlocking { documentProcessor.processSummary(request) }
+            }
+        }
+
+    @Test
+    fun `processSummary should handle invalid base64`() =
+        runBlocking {
+            // Given
+            val invalidBase64 = "not-valid-base64!!!"
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = invalidBase64,
+                    userPrompt = testUserPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(any()) } throws IllegalArgumentException("Invalid base64")
+
+            // When & Then
+            org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                runBlocking { documentProcessor.processSummary(request) }
+            }
+        }
+
+    @Test
+    fun `processSummary should handle very long user prompt`() =
+        runBlocking {
+            // Given
+            val longPrompt = "A".repeat(10000)
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = longPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage("Summary prompt", longPrompt, testExtractedText)
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processSummary(request)
+
+            // Then
+            assertEquals(testOutputUrl, response.resultPdfUrl)
+            coVerify(exactly = 1) {
+                claudeApiClient.sendMessage("Summary prompt", longPrompt, testExtractedText)
+            }
+        }
+
+    @Test
+    fun `processExamQuestions should handle all processing steps successfully`() =
+        runBlocking {
+            // Given
+            // Test with null prompt
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = null,
+                )
+
+            val examOutputFilePath = "datas/output/testuser_789-abc_exam_questions.pdf"
+            val examOutputUrl = "https://test.example.com/$examOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(
+                    "Exam questions prompt",
+                    "Please analyze this document.",
+                    testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "EXAM_QUESTIONS", testResultPdfBytes) } returns examOutputFilePath
+            every { fileStorageUtils.filePathToUrl(testInputFilePath) } returns "https://test.example.com/$testInputFilePath"
+            every { fileStorageUtils.filePathToUrl(examOutputFilePath) } returns examOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processExamQuestions(request)
+
+            // Then
+            assertEquals(examOutputUrl, response.resultPdfUrl)
+
+            // Verify all steps were called
+            verify(exactly = 1) { userRepository.findById(testUserId) }
+            verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
+            verify(exactly = 1) { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) }
+            coVerify(exactly = 1) {
+                claudeApiClient.sendMessage(
+                    "Exam questions prompt",
+                    "Please analyze this document.",
+                    testExtractedText,
+                )
+            }
+            verify(exactly = 1) { pdfUtils.markdownToPdf(testMarkdownResponse) }
+            verify(exactly = 1) { fileStorageUtils.saveOutputPdf(testUsername, "EXAM_QUESTIONS", testResultPdfBytes) }
+            verify(exactly = 1) { documentHistoryRepository.save(any()) }
+        }
+
+    @Test
+    fun `processSummary should save correct history data`() =
+        runBlocking {
+            // Given
+            val customPrompt = "Custom analysis request"
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = customPrompt,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(any(), any(), any())
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+
+            val historySlot = slot<DocumentHistory>()
+            every { documentHistoryRepository.save(capture(historySlot)) } answers { firstArg() }
+
+            // When
+            documentProcessor.processSummary(request)
+
+            // Then
+            val savedHistory = historySlot.captured
+            assertEquals(testUserId, savedHistory.userId)
+            assertEquals(ProcessingType.SUMMARY, savedHistory.processingType)
+            assertEquals(customPrompt, savedHistory.userPrompt)
+            assertEquals(testInputFilePath, savedHistory.inputFilePath)
+            assertEquals(testOutputFilePath, savedHistory.outputFilePath)
+            assertNotNull(savedHistory.createdAt)
         }
 }

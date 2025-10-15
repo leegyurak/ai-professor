@@ -114,3 +114,26 @@ ipcMain.handle('save-base64-pdf', async (_e, args: { fileName: string; base64: s
   return { canceled: false, filePath: result.filePath };
 });
 
+ipcMain.handle('save-pdf-from-url', async (_e, args: { fileName: string; url: string }) => {
+  const { fileName, url } = args;
+  const result = await dialog.showSaveDialog({
+    title: 'PDF 저장',
+    defaultPath: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    await fs.writeFile(result.filePath, buffer);
+    return { canceled: false, filePath: result.filePath };
+  } catch (error: any) {
+    throw new Error(`PDF 다운로드 실패: ${error.message}`);
+  }
+});
+

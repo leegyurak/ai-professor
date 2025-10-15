@@ -40,3 +40,6 @@ session:
 
 pdf:
   max-size-bytes: 31457280 # 30MB
+
+app:
+  base-url: https://test.example.com

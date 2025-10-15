@@ -29,10 +29,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  data:
-    redis:
-      host: localhost
-      port: 6379
 
 jwt:
   secret: test-secret-key-for-jwt-token-generation-minimum-256-bits-required-for-hs256-algorithm
@@ -57,6 +53,9 @@ session:
 
 pdf:
   max-size-bytes: 31457280 # 30MB
+
+app:
+  base-url: http://localhost:8080
 
 ---
 spring:
@@ -83,10 +82,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  data:
-    redis:
-      host: localhost
-      port: 6379
 
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-for-jwt-token-generation-minimum-256-bits-required}
@@ -111,6 +106,9 @@ session:
 
 pdf:
   max-size-bytes: 31457280 # 30MB
+
+app:
+  base-url: http://localhost:8080
 
 ---
 spring:
@@ -141,11 +139,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
 
 jwt:
   secret: ${JWT_SECRET}
@@ -170,3 +163,6 @@ session:
 
 pdf:
   max-size-bytes: 31457280 # 30MB
+
+app:
+  base-url: ${BASE_URL:https://api.example.com}

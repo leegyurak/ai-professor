@@ -49,7 +49,7 @@ class DocumentControllerTest : IntegrationTestBase() {
     private val testUserId = 1L
     private val testUsername = "testuser"
     private val testPdfBase64 = Base64.getEncoder().encodeToString("test pdf content".toByteArray())
-    private val testResultBase64 = Base64.getEncoder().encodeToString("result pdf content".toByteArray())
+    private val testResultUrl = "https://test.example.com/datas/output/testuser_123-456_summary.pdf"
     private lateinit var validToken: String
 
     @BeforeEach
@@ -78,7 +78,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             documentProcessor.processSummary(
                 match { it.userId == testUserId && it.pdfBase64 == testPdfBase64 },
             )
-        } returns DocumentResponse(resultPdfBase64 = testResultBase64)
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
 
         // When & Then
         mockMvc
@@ -89,7 +89,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             }.andExpect {
                 status { isOk() }
                 content { contentType(MediaType.APPLICATION_JSON) }
-                jsonPath("$.resultPdfBase64") { value(testResultBase64) }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
             }
     }
 
@@ -106,7 +106,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             documentProcessor.processExamQuestions(
                 match { it.userId == testUserId && it.pdfBase64 == testPdfBase64 },
             )
-        } returns DocumentResponse(resultPdfBase64 = testResultBase64)
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
 
         // When & Then
         mockMvc
@@ -117,7 +117,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             }.andExpect {
                 status { isOk() }
                 content { contentType(MediaType.APPLICATION_JSON) }
-                jsonPath("$.resultPdfBase64") { value(testResultBase64) }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
             }
     }
 
@@ -154,7 +154,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             documentProcessor.processSummary(
                 match { it.userId == testUserId && it.userPrompt == null },
             )
-        } returns DocumentResponse(resultPdfBase64 = testResultBase64)
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
 
         // When & Then
         mockMvc
@@ -165,7 +165,7 @@ class DocumentControllerTest : IntegrationTestBase() {
             }.andExpect {
                 status { isOk() }
                 content { contentType(MediaType.APPLICATION_JSON) }
-                jsonPath("$.resultPdfBase64") { value(testResultBase64) }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
             }
     }
 
@@ -198,8 +198,8 @@ class DocumentControllerTest : IntegrationTestBase() {
                 userId = testUserId,
                 processingType = ProcessingType.SUMMARY,
                 userPrompt = "Test prompt 1",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_123-456.pdf",
+                outputFilePath = "datas/output/testuser_123-456_summary.pdf",
                 createdAt = LocalDateTime.now().minusDays(1),
             )
         val history2 =
@@ -208,8 +208,8 @@ class DocumentControllerTest : IntegrationTestBase() {
                 userId = testUserId,
                 processingType = ProcessingType.EXAM_QUESTIONS,
                 userPrompt = "Test prompt 2",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_789-abc.pdf",
+                outputFilePath = "datas/output/testuser_789-abc_exam_questions.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -248,8 +248,8 @@ class DocumentControllerTest : IntegrationTestBase() {
                 userId = testUserId,
                 processingType = ProcessingType.SUMMARY,
                 userPrompt = "Test prompt",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_123-456.pdf",
+                outputFilePath = "datas/output/testuser_123-456_summary.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -282,8 +282,8 @@ class DocumentControllerTest : IntegrationTestBase() {
                     userId = testUserId,
                     processingType = ProcessingType.SUMMARY,
                     userPrompt = "Test prompt $index",
-                    inputBase64 = testPdfBase64,
-                    outputBase64 = testResultBase64,
+                    inputFilePath = "datas/input/testuser_$index-456.pdf",
+                    outputFilePath = "datas/output/testuser_$index-456_summary.pdf",
                     createdAt = LocalDateTime.now().minusDays(index.toLong()),
                 )
             }
@@ -318,5 +318,424 @@ class DocumentControllerTest : IntegrationTestBase() {
             .andExpect {
                 status { isForbidden() }
             }
+    }
+
+    @Test
+    fun `generateSummary should return 403 when not authenticated`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "Test prompt",
+            )
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+            }.andExpect {
+                status { isForbidden() }
+            }
+    }
+
+    @Test
+    fun `generateExamQuestions should return 403 when not authenticated`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "Test prompt",
+            )
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/exam-questions") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+            }.andExpect {
+                status { isForbidden() }
+            }
+    }
+
+    @Test
+    fun `generateSummary should return 403 when token is invalid`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "Test prompt",
+            )
+
+        every { sessionRepository.findByToken("invalid-token") } returns null
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer invalid-token")
+            }.andExpect {
+                status { isForbidden() }
+            }
+    }
+
+    @Test
+    fun `generateSummary should handle very long user prompt`() {
+        // Given
+        val longPrompt = "x".repeat(10000)
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = longPrompt,
+            )
+
+        coEvery {
+            documentProcessor.processSummary(
+                match { it.userPrompt == longPrompt },
+            )
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
+            }
+    }
+
+    @Test
+    fun `generateSummary should handle large base64 PDF`() {
+        // Given
+        val largePdfBytes = ByteArray(10 * 1024 * 1024) // 10MB
+        val largeBase64 = Base64.getEncoder().encodeToString(largePdfBytes)
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = largeBase64,
+                userPrompt = "Test prompt",
+            )
+
+        coEvery {
+            documentProcessor.processSummary(
+                match { it.pdfBase64 == largeBase64 },
+            )
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
+            }
+    }
+
+    @Test
+    fun `generateSummary should handle special characters in user prompt`() {
+        // Given
+        val specialPrompt = "Test with special chars: äöü 한글 日本語 @#\$%^&*()"
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = specialPrompt,
+            )
+
+        coEvery {
+            documentProcessor.processSummary(
+                match { it.userPrompt == specialPrompt },
+            )
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should handle empty history gracefully`() {
+        // Given
+        val emptyPage = PageImpl<DocumentHistory>(emptyList(), PageRequest.of(0, 20), 0)
+
+        every {
+            documentHistoryService.getDocumentHistory(testUserId, null, any())
+        } returns emptyPage
+
+        // When & Then
+        mockMvc
+            .get("/api/documents/history") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                content { contentType(MediaType.APPLICATION_JSON) }
+                jsonPath("$.content.length()") { value(0) }
+                jsonPath("$.totalElements") { value(0) }
+                jsonPath("$.totalPages") { value(0) }
+                jsonPath("$.isLast") { value(true) }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should handle invalid processingType parameter`() {
+        // When & Then
+        mockMvc
+            .get("/api/documents/history?processingType=INVALID_TYPE") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isBadRequest() }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should handle page number zero`() {
+        // Given
+        val histories =
+            listOf(
+                DocumentHistory(
+                    id = 1L,
+                    userId = testUserId,
+                    processingType = ProcessingType.SUMMARY,
+                    userPrompt = "Test prompt",
+                    inputFilePath = "datas/input/testuser_123-456.pdf",
+                    outputFilePath = "datas/output/testuser_123-456_summary.pdf",
+                    createdAt = LocalDateTime.now(),
+                ),
+            )
+
+        val page = PageImpl(histories, PageRequest.of(0, 20), 1)
+
+        every {
+            documentHistoryService.getDocumentHistory(testUserId, null, any())
+        } returns page
+
+        // When & Then
+        mockMvc
+            .get("/api/documents/history?page=0") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.pageNumber") { value(0) }
+                jsonPath("$.content.length()") { value(1) }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should handle very large page size`() {
+        // Given
+        val histories =
+            (1..100).map { index ->
+                DocumentHistory(
+                    id = index.toLong(),
+                    userId = testUserId,
+                    processingType = ProcessingType.SUMMARY,
+                    userPrompt = "Test prompt $index",
+                    inputFilePath = "datas/input/testuser_$index-456.pdf",
+                    outputFilePath = "datas/output/testuser_$index-456_summary.pdf",
+                    createdAt = LocalDateTime.now().minusDays(index.toLong()),
+                )
+            }
+
+        val page = PageImpl(histories, PageRequest.of(0, 1000), 100)
+
+        every {
+            documentHistoryService.getDocumentHistory(testUserId, null, any())
+        } returns page
+
+        // When & Then
+        mockMvc
+            .get("/api/documents/history?size=1000") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.content.length()") { value(100) }
+                jsonPath("$.pageSize") { value(1000) }
+            }
+    }
+
+    @Test
+    fun `generateSummary should return 400 when request body is missing`() {
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isBadRequest() }
+            }
+    }
+
+    @Test
+    fun `generateSummary should return 400 when request body is malformed JSON`() {
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = "{invalid json"
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isBadRequest() }
+            }
+    }
+
+    @Test
+    fun `generateExamQuestions should handle empty userPrompt string`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "",
+            )
+
+        coEvery {
+            documentProcessor.processExamQuestions(
+                match { it.userPrompt == "" },
+            )
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/exam-questions") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should return URLs in correct format`() {
+        // Given
+        val history =
+            DocumentHistory(
+                id = 1L,
+                userId = testUserId,
+                processingType = ProcessingType.SUMMARY,
+                userPrompt = "Test prompt",
+                inputFilePath = "datas/input/testuser_123-456.pdf",
+                outputFilePath = "datas/output/testuser_123-456_summary.pdf",
+                createdAt = LocalDateTime.now(),
+            )
+
+        val page = PageImpl(listOf(history), PageRequest.of(0, 20), 1)
+
+        every {
+            documentHistoryService.getDocumentHistory(testUserId, null, any())
+        } returns page
+
+        // When & Then
+        mockMvc
+            .get("/api/documents/history") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.content[0].inputUrl") { exists() }
+                jsonPath("$.content[0].outputUrl") { exists() }
+                jsonPath("$.content[0].inputUrl") { isString() }
+                jsonPath("$.content[0].outputUrl") { isString() }
+            }
+    }
+
+    @Test
+    fun `getDocumentHistory should filter EXAM_QUESTIONS correctly`() {
+        // Given
+        val history =
+            DocumentHistory(
+                id = 1L,
+                userId = testUserId,
+                processingType = ProcessingType.EXAM_QUESTIONS,
+                userPrompt = "Test prompt",
+                inputFilePath = "datas/input/testuser_123-456.pdf",
+                outputFilePath = "datas/output/testuser_123-456_exam_questions.pdf",
+                createdAt = LocalDateTime.now(),
+            )
+
+        val page = PageImpl(listOf(history), PageRequest.of(0, 20), 1)
+
+        every {
+            documentHistoryService.getDocumentHistory(testUserId, ProcessingType.EXAM_QUESTIONS, any())
+        } returns page
+
+        // When & Then
+        mockMvc
+            .get("/api/documents/history?processingType=EXAM_QUESTIONS") {
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.content.length()") { value(1) }
+                jsonPath("$.content[0].processingType") { value("EXAM_QUESTIONS") }
+                jsonPath("$.content[0].outputUrl") { exists() }
+            }
+    }
+
+    @Test
+    fun `generateSummary should handle whitespace-only userPrompt`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "   ",
+            )
+
+        coEvery {
+            documentProcessor.processSummary(
+                match { it.userPrompt == "   " },
+            )
+        } returns DocumentResponse(resultPdfUrl = testResultUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(testResultUrl) }
+            }
+    }
+
+    @Test
+    fun `generateSummary should preserve URL format in response`() {
+        // Given
+        val requestDto =
+            DocumentRequestDto(
+                pdfBase64 = testPdfBase64,
+                userPrompt = "Test prompt",
+            )
+
+        val expectedUrl = "https://example.com/datas/output/user_uuid_summary.pdf"
+
+        coEvery {
+            documentProcessor.processSummary(any())
+        } returns DocumentResponse(resultPdfUrl = expectedUrl)
+
+        // When & Then
+        mockMvc
+            .post("/api/documents/summary") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(requestDto)
+                header("Authorization", "Bearer $validToken")
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.resultPdfUrl") { value(expectedUrl) }
+            }
+
+        // Verify URL format
+        assert(expectedUrl.startsWith("https://"))
     }
 }

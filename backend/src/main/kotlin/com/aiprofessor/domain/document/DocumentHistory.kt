@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
@@ -26,12 +25,10 @@ class DocumentHistory(
     val processingType: ProcessingType,
     @Column(columnDefinition = "TEXT")
     val userPrompt: String? = null,
-    @Lob
-    @Column(nullable = false, columnDefinition = "LONGTEXT")
-    val inputBase64: String,
-    @Lob
-    @Column(nullable = false, columnDefinition = "LONGTEXT")
-    val outputBase64: String,
+    @Column(nullable = false, length = 500)
+    val inputFilePath: String,
+    @Column(nullable = false, length = 500)
+    val outputFilePath: String,
     @Column(nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 )

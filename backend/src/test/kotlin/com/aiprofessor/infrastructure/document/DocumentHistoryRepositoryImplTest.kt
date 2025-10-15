@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
-import java.util.Base64
 
 @Transactional
 class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
@@ -24,8 +23,6 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
     private lateinit var jpaUserRepository: JpaUserRepository
 
     private lateinit var testUser: User
-    private val testPdfBase64 = Base64.getEncoder().encodeToString("test pdf content".toByteArray())
-    private val testResultBase64 = Base64.getEncoder().encodeToString("result pdf content".toByteArray())
 
     @BeforeEach
     fun setup() {
@@ -47,8 +44,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
                 userId = testUser.id!!,
                 processingType = ProcessingType.SUMMARY,
                 userPrompt = "Test summary prompt",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_123-456.pdf",
+                outputFilePath = "datas/output/testuser_123-456_summary.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -60,8 +57,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
         assertEquals(testUser.id, savedHistory.userId)
         assertEquals(ProcessingType.SUMMARY, savedHistory.processingType)
         assertEquals("Test summary prompt", savedHistory.userPrompt)
-        assertEquals(testPdfBase64, savedHistory.inputBase64)
-        assertEquals(testResultBase64, savedHistory.outputBase64)
+        assertEquals("datas/input/testuser_123-456.pdf", savedHistory.inputFilePath)
+        assertEquals("datas/output/testuser_123-456_summary.pdf", savedHistory.outputFilePath)
         assertNotNull(savedHistory.createdAt)
     }
 
@@ -73,8 +70,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
                 userId = testUser.id!!,
                 processingType = ProcessingType.EXAM_QUESTIONS,
                 userPrompt = "Test exam questions prompt",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_789-abc.pdf",
+                outputFilePath = "datas/output/testuser_789-abc_exam_questions.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -86,8 +83,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
         assertEquals(testUser.id, savedHistory.userId)
         assertEquals(ProcessingType.EXAM_QUESTIONS, savedHistory.processingType)
         assertEquals("Test exam questions prompt", savedHistory.userPrompt)
-        assertEquals(testPdfBase64, savedHistory.inputBase64)
-        assertEquals(testResultBase64, savedHistory.outputBase64)
+        assertEquals("datas/input/testuser_789-abc.pdf", savedHistory.inputFilePath)
+        assertEquals("datas/output/testuser_789-abc_exam_questions.pdf", savedHistory.outputFilePath)
         assertNotNull(savedHistory.createdAt)
     }
 
@@ -99,8 +96,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
                 userId = testUser.id!!,
                 processingType = ProcessingType.SUMMARY,
                 userPrompt = null,
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_def-123.pdf",
+                outputFilePath = "datas/output/testuser_def-123_summary.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -112,8 +109,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
         assertEquals(testUser.id, savedHistory.userId)
         assertEquals(ProcessingType.SUMMARY, savedHistory.processingType)
         assertEquals(null, savedHistory.userPrompt)
-        assertEquals(testPdfBase64, savedHistory.inputBase64)
-        assertEquals(testResultBase64, savedHistory.outputBase64)
+        assertEquals("datas/input/testuser_def-123.pdf", savedHistory.inputFilePath)
+        assertEquals("datas/output/testuser_def-123_summary.pdf", savedHistory.outputFilePath)
         assertNotNull(savedHistory.createdAt)
     }
 
@@ -125,8 +122,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
                 userId = testUser.id!!,
                 processingType = ProcessingType.SUMMARY,
                 userPrompt = "First prompt",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_aaa-111.pdf",
+                outputFilePath = "datas/output/testuser_aaa-111_summary.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -135,8 +132,8 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
                 userId = testUser.id!!,
                 processingType = ProcessingType.EXAM_QUESTIONS,
                 userPrompt = "Second prompt",
-                inputBase64 = testPdfBase64,
-                outputBase64 = testResultBase64,
+                inputFilePath = "datas/input/testuser_bbb-222.pdf",
+                outputFilePath = "datas/output/testuser_bbb-222_exam_questions.pdf",
                 createdAt = LocalDateTime.now(),
             )
 
@@ -154,18 +151,19 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `should save document history with large base64 content`() {
+    fun `should save document history with long file paths`() {
         // Given
-        val largePdfBase64 = Base64.getEncoder().encodeToString("a".repeat(100000).toByteArray())
-        val largeResultBase64 = Base64.getEncoder().encodeToString("b".repeat(100000).toByteArray())
+        val longUsername = "very_long_username_for_testing"
+        val longInputPath = "datas/input/${longUsername}_123e4567-e89b-12d3-a456-426614174000.pdf"
+        val longOutputPath = "datas/output/${longUsername}_123e4567-e89b-12d3-a456-426614174000_summary.pdf"
 
         val history =
             DocumentHistory(
                 userId = testUser.id!!,
                 processingType = ProcessingType.SUMMARY,
-                userPrompt = "Test large content",
-                inputBase64 = largePdfBase64,
-                outputBase64 = largeResultBase64,
+                userPrompt = "Test long file paths",
+                inputFilePath = longInputPath,
+                outputFilePath = longOutputPath,
                 createdAt = LocalDateTime.now(),
             )
 
@@ -174,7 +172,7 @@ class DocumentHistoryRepositoryImplTest : IntegrationTestBase() {
 
         // Then
         assertNotNull(savedHistory.id)
-        assertEquals(largePdfBase64, savedHistory.inputBase64)
-        assertEquals(largeResultBase64, savedHistory.outputBase64)
+        assertEquals(longInputPath, savedHistory.inputFilePath)
+        assertEquals(longOutputPath, savedHistory.outputFilePath)
     }
 }

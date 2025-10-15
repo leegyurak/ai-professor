@@ -116,7 +116,7 @@ export interface GenerateParams {
 }
 
 export interface GenerateResult {
-  resultPdfBase64: string;
+  resultPdfUrl: string;
 }
 
 export async function generate(params: GenerateParams, token?: string): Promise<GenerateResult> {
@@ -124,7 +124,7 @@ export async function generate(params: GenerateParams, token?: string): Promise<
     ? '/api/documents/summary'
     : '/api/documents/exam-questions';
 
-  const response = await http<{ resultPdfBase64: string }>(endpoint, {
+  const response = await http<{ resultPdfUrl: string }>(endpoint, {
     method: 'POST',
     body: JSON.stringify({
       pdfBase64: params.pdfBase64 || '',
@@ -133,7 +133,7 @@ export async function generate(params: GenerateParams, token?: string): Promise<
     authToken: token,
   });
 
-  return { resultPdfBase64: response.resultPdfBase64 };
+  return { resultPdfUrl: response.resultPdfUrl };
 }
 
 // History API
@@ -141,8 +141,8 @@ export interface HistoryItem {
   id: number;
   processingType: 'SUMMARY' | 'EXAM_QUESTIONS';
   userPrompt: string;
-  inputBase64: string;
-  outputBase64: string;
+  inputUrl: string;
+  outputUrl: string;
   createdAt: string;
 }
 

@@ -99,16 +99,18 @@ function DropZone({ onFile }: { onFile: (f: File) => void }) {
   );
 }
 
-async function fileToBase64(file: File) {
-  const buf = await file.arrayBuffer();
-  let binary = '';
-  const bytes = new Uint8Array(buf);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk) as any);
-  }
-  return btoa(binary);
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 // PDF.js worker 설정
@@ -155,7 +157,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [currentTab, setCurrentTab] = useState<'generate' | 'history'>('generate');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
-  const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; base64: string } | null>(null);
+  const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; url: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -221,11 +223,11 @@ function MainScreen({ username, token }: { username: string; token: string }) {
 
       // 다운로드 완료 상태로 전환
       const defaultName = `${username}_${action}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      setLastDownloadData({ filename: defaultName, base64: res.resultPdfBase64 });
+      setLastDownloadData({ filename: defaultName, url: res.resultPdfUrl });
       setDownloadComplete(true);
 
       // 바로 다운로드 시도
-      await window.api.saveBase64Pdf(defaultName, res.resultPdfBase64);
+      await window.api.savePdfFromUrl(defaultName, res.resultPdfUrl);
 
       // Reload history after generating (reset to first page)
       if (currentTab === 'history') {
@@ -437,9 +439,14 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                         <button
                           className="btn"
                           style={{ padding: '8px 16px', fontSize: 13, marginLeft: 16, flexShrink: 0 }}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            window.api.saveBase64Pdf(`history_${it.id}.pdf`, it.outputBase64);
+                            try {
+                              await window.api.savePdfFromUrl(`history_${it.id}.pdf`, it.outputUrl);
+                            } catch (error) {
+                              console.error('Failed to download:', error);
+                              setError('다운로드에 실패했습니다.');
+                            }
                           }}
                         >
                           📥 다운로드
@@ -591,9 +598,14 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   다운로드가 자동으로 진행됩니다.<br />
                   진행되지 않는다면{' '}
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (lastDownloadData) {
-                        window.api.saveBase64Pdf(lastDownloadData.filename, lastDownloadData.base64);
+                        try {
+                          await window.api.savePdfFromUrl(lastDownloadData.filename, lastDownloadData.url);
+                        } catch (error) {
+                          console.error('Failed to download:', error);
+                          setError('다운로드에 실패했습니다.');
+                        }
                       }
                     }}
                     style={{

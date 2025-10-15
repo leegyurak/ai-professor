@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MAX_PDF_SIZE } from '@/shared/config';
 import { generate, getHistory, login, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
-import { fileToBase64, getPdfPageCount, downloadBase64Pdf } from './utils/pdfUtils';
+import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
 
 function LoginScreen({ onDone }: { onDone: (username: string, token: string) => void }) {
   const [username, setUsername] = useState('');
@@ -128,7 +128,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [currentTab, setCurrentTab] = useState<'generate' | 'history'>('generate');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
-  const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; base64: string } | null>(null);
+  const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; url: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
@@ -265,11 +265,11 @@ function MainScreen({ username, token }: { username: string; token: string }) {
 
       // 다운로드 완료 상태로 전환
       const defaultName = `${username}_${action}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      setLastDownloadData({ filename: defaultName, base64: res.resultPdfBase64 });
+      setLastDownloadData({ filename: defaultName, url: res.resultPdfUrl });
       setDownloadComplete(true);
 
       // 바로 다운로드 시도 (web version)
-      downloadBase64Pdf(defaultName, res.resultPdfBase64);
+      await downloadPdfFromUrl(defaultName, res.resultPdfUrl);
 
       // Clear cache and reload history after generating (reset to first page)
       clearHistoryCache();
@@ -494,9 +494,14 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                         <button
                           className="btn"
                           style={{ padding: '6px 10px', fontSize: 11, flexShrink: 0, alignSelf: 'flex-start' }}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            downloadBase64Pdf(`history_${it.id}.pdf`, it.outputBase64);
+                            try {
+                              await downloadPdfFromUrl(`history_${it.id}.pdf`, it.outputUrl);
+                            } catch (error) {
+                              console.error('Failed to download:', error);
+                              setError('다운로드에 실패했습니다.');
+                            }
                           }}
                         >
                           📥 다운로드
@@ -626,9 +631,14 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   다운로드가 자동으로 진행됩니다.<br />
                   진행되지 않는다면{' '}
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (lastDownloadData) {
-                        downloadBase64Pdf(lastDownloadData.filename, lastDownloadData.base64);
+                        try {
+                          await downloadPdfFromUrl(lastDownloadData.filename, lastDownloadData.url);
+                        } catch (error) {
+                          console.error('Failed to download:', error);
+                          setError('다운로드에 실패했습니다.');
+                        }
                       }
                     }}
                     style={{
