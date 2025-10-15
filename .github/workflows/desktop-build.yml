@@ -171,21 +171,46 @@ jobs:
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Generate frontend changelog
+        id: frontend_changelog
+        run: |
+          if [ -z "${{ steps.prev_tag.outputs.PREV_TAG }}" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" -- frontend/)
+          else
+            COMMITS=$(git log ${{ steps.prev_tag.outputs.PREV_TAG }}..${{ steps.extract_tag.outputs.TAG }} --pretty=format:"- %s (%h)" -- frontend/)
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="No changes in frontend"
+          fi
+
+          echo "COMMITS<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create release notes
         run: |
           cat << EOF > release_notes.md
           # AI Professor Release ${{ steps.extract_tag.outputs.TAG }}
 
-          ## Desktop Changes
-          ${{ steps.desktop_changelog.outputs.COMMITS }}
+          ## Frontend Changes
+          ${{ steps.frontend_changelog.outputs.COMMITS }}
 
           ## Backend Changes
           ${{ steps.backend_changelog.outputs.COMMITS }}
 
+          ## Desktop Changes
+          ${{ steps.desktop_changelog.outputs.COMMITS }}
+
           ## Downloads
+          ### Desktop Application
           - **macOS (Intel)**: ai-professor-desktop-mac-x64.zip
           - **macOS (Apple Silicon)**: ai-professor-desktop-mac-arm64.zip
           - **Windows**: ai-professor-desktop-windows.zip
+
+          ### Docker Images
+          - **Frontend**: \`docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor_fe:${{ steps.extract_tag.outputs.TAG }}\`
+          - **Backend**: \`docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor:${{ steps.extract_tag.outputs.TAG }}\`
 
           ## Installation
           ### Desktop Application
@@ -193,9 +218,16 @@ jobs:
           2. Extract the archive
           3. Run the application
 
+          ### Frontend (Docker)
+          \`\`\`bash
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor_fe:${{ steps.extract_tag.outputs.TAG }}
+          docker run -p 3000:3000 ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor_fe:${{ steps.extract_tag.outputs.TAG }}
+          \`\`\`
+
           ### Backend (Docker)
           \`\`\`bash
-          docker pull ${{ secrets.DOCKER_USERNAME }}/ai-professor:${{ steps.extract_tag.outputs.TAG }}
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor:${{ steps.extract_tag.outputs.TAG }}
+          docker run -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/ai-professor:${{ steps.extract_tag.outputs.TAG }}
           \`\`\`
 
           ---
