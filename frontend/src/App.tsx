@@ -3,6 +3,7 @@ import { MAX_PDF_SIZE } from '@/shared/config';
 import { generate, getHistory, login, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
+import { PdfViewer } from './components/PdfViewer';
 
 function LoginScreen({ onDone }: { onDone: (username: string, token: string) => void }) {
   const [username, setUsername] = useState('');
@@ -78,7 +79,7 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
   );
 }
 
-function DropZone({ onFile }: { onFile: (f: File) => void }) {
+function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   const [drag, setDrag] = useState(false);
   return (
     <div
@@ -87,16 +88,17 @@ function DropZone({ onFile }: { onFile: (f: File) => void }) {
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => {
         e.preventDefault(); setDrag(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f) onFile(f);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) onFiles(files);
       }}
     >
       <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
-      <div>PDF 파일을 드래그하거나 선택하세요</div>
+      <div>PDF 파일을 드래그하거나 선택하세요 (복수 선택 가능)</div>
       <div className="space" />
       <label className="btn ghost" htmlFor="file-input">📁 파일 선택</label>
-      <input id="file-input" type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => {
-        const f = e.currentTarget.files?.[0]; if (f) onFile(f);
+      <input id="file-input" type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={(e) => {
+        const files = Array.from(e.currentTarget.files || []);
+        if (files.length > 0) onFiles(files);
       }} />
     </div>
   );
@@ -119,7 +121,7 @@ const LOADING_MESSAGES = [
 function MainScreen({ username, token }: { username: string; token: string }) {
   console.log('[MainScreen] Received props - username:', username, 'token:', token);
   const [prompt, setPrompt] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [action, setAction] = useState<ActionType>('summary');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,11 +130,15 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [currentTab, setCurrentTab] = useState<'generate' | 'history'>('generate');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
-  const [lastDownloadData, setLastDownloadData] = useState<{ filename: string; url: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedAreasByFile, setSelectedAreasByFile] = useState<Map<string, string[]>>(new Map());
+  const [fileBase64Map, setFileBase64Map] = useState<Map<File, string>>(new Map());
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
 
-  const canSend = useMemo(() => prompt.trim().length > 0 && !!file, [prompt, file]);
+  const canSend = useMemo(() => prompt.trim().length > 0 && files.length > 0, [prompt, files]);
 
   const getCacheKey = (username: string, page: number) => `history_cache_${username}_page_${page}`;
   const getCacheMetaKey = (username: string) => `history_cache_meta_${username}`;
@@ -244,12 +250,8 @@ function MainScreen({ username, token }: { username: string; token: string }) {
 
   const onSend = async () => {
     setError(null);
-    if (!file) {
+    if (files.length === 0) {
       setError('PDF 파일을 선택해주세요.');
-      return;
-    }
-    if (file.size > MAX_PDF_SIZE) {
-      setError('PDF 용량은 30MB 이하여야 합니다.');
       return;
     }
     if (!prompt.trim()) {
@@ -259,17 +261,33 @@ function MainScreen({ username, token }: { username: string; token: string }) {
     setLoading(true);
     setDownloadComplete(false);
     try {
-      const pdfBase64 = await fileToBase64(file);
-      const res = await generate({ type: action, prompt, pdfBase64 }, token);
-      console.log('[onSend] Generate response:', res);
+      // Process each file in parallel
+      const results = await Promise.all(
+        files.map(async (file, index) => {
+          const pdfBase64 = await fileToBase64(file);
+          const res = await generate({
+            type: action,
+            prompt,
+            pdfBase64,
+            importantParts: selectedAreasByFile.get(pdfBase64) || undefined
+          }, token);
+          console.log(`[onSend] Generate response for file ${index + 1}:`, res);
+          return {
+            filename: `${username}_${action}_${file.name.replace('.pdf', '')}_${new Date().toISOString().slice(0, 10)}.pdf`,
+            url: res.resultPdfUrl
+          };
+        })
+      );
 
       // 다운로드 완료 상태로 전환
-      const defaultName = `${username}_${action}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      setLastDownloadData({ filename: defaultName, url: res.resultPdfUrl });
       setDownloadComplete(true);
 
-      // 바로 다운로드 시도 (web version)
-      await downloadPdfFromUrl(defaultName, res.resultPdfUrl);
+      // 모든 파일 다운로드 시도
+      for (const result of results) {
+        await downloadPdfFromUrl(result.filename, result.url);
+        // 다운로드 간 짧은 딜레이 (브라우저가 다운로드를 처리할 시간 제공)
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       // Clear cache and reload history after generating (reset to first page)
       clearHistoryCache();
@@ -281,8 +299,10 @@ function MainScreen({ username, token }: { username: string; token: string }) {
       setTimeout(() => {
         setLoading(false);
         setDownloadComplete(false);
-        setFile(null);
+        setFiles([]);
         setPrompt('');
+        setSelectedAreasByFile(new Map());
+        setFileBase64Map(new Map());
       }, 10000);
     } catch (e: any) {
       setError(e?.message || '요청 중 오류가 발생했습니다.');
@@ -371,32 +391,101 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                 <div style={{ flexShrink: 0 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>PDF 파일 업로드</h3>
                   <DropZone
-                    onFile={async (f) => {
-                      if (f.type !== 'application/pdf') {
-                        setError('PDF 파일만 업로드할 수 있습니다.');
-                        return;
-                      }
-                      if (f.size > MAX_PDF_SIZE) {
-                        setError('PDF 용량은 30MB 이하여야 합니다.');
-                        return;
+                    onFiles={async (uploadedFiles) => {
+                      const validFiles: File[] = [];
+
+                      for (const f of uploadedFiles) {
+                        if (f.type !== 'application/pdf') {
+                          setError(`${f.name}은(는) PDF 파일이 아닙니다.`);
+                          continue;
+                        }
+                        if (f.size > MAX_PDF_SIZE) {
+                          setError(`${f.name}의 용량이 30MB를 초과합니다.`);
+                          continue;
+                        }
+
+                        // 페이지 수 확인
+                        const pageCount = await getPdfPageCount(f);
+                        if (pageCount > 100) {
+                          setError(`${f.name}의 페이지 수가 너무 많습니다. (${pageCount}페이지) 100페이지 이하의 PDF만 업로드 가능합니다.`);
+                          continue;
+                        }
+
+                        validFiles.push(f);
                       }
 
-                      // 페이지 수 확인
-                      const pageCount = await getPdfPageCount(f);
-                      if (pageCount > 100) {
-                        setError(`PDF 페이지 수가 너무 많습니다. (${pageCount}페이지) 100페이지 이하의 PDF만 업로드 가능합니다.`);
-                        return;
+                      if (validFiles.length > 0) {
+                        setError(null);
+                        // Encode files to base64 and store mapping
+                        const newBase64Map = new Map(fileBase64Map);
+                        for (const file of validFiles) {
+                          const base64 = await fileToBase64(file);
+                          newBase64Map.set(file, base64);
+                        }
+                        setFileBase64Map(newBase64Map);
+                        setFiles(prev => [...prev, ...validFiles]);
+                        setPreviewFiles(validFiles); // 미리보기용으로는 새로 업로드한 파일만
+                        setShowPdfModal(true);
                       }
-
-                      setError(null);
-                      setFile(f);
                     }}
                   />
-                  {file && (
+                  {files.length > 0 && (
                     <>
                       <div className="space" />
-                      <div className="chip" style={{ width: 'fit-content', padding: '6px 10px', fontSize: 11 }}>
-                        📎 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {files.map((file, index) => (
+                          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <div className="chip" style={{ width: 'fit-content', padding: '6px 10px', fontSize: 11 }}>
+                              📎 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </div>
+                            {(() => {
+                              const base64 = fileBase64Map.get(file);
+                              const areas = base64 ? selectedAreasByFile.get(base64) : undefined;
+                              return areas && areas.length > 0 ? (
+                                <div className="chip" style={{ padding: '6px 10px', fontSize: 11, background: 'rgba(255, 235, 59, 0.3)', border: '1px solid rgba(255, 193, 7, 0.5)' }}>
+                                  ✓ {areas.length}개 영역 선택됨
+                                </div>
+                              ) : null;
+                            })()}
+                            <button
+                              className="btn secondary"
+                              onClick={() => {
+                                const newFiles = files.filter((_, i) => i !== index);
+                                setFiles(newFiles);
+                                // 파일 제거 시 해당 파일의 선택된 영역도 제거
+                                const base64 = fileBase64Map.get(file);
+                                if (base64) {
+                                  setSelectedAreasByFile(prev => {
+                                    const newMap = new Map(prev);
+                                    newMap.delete(base64);
+                                    return newMap;
+                                  });
+                                }
+                                // base64 매핑도 제거
+                                setFileBase64Map(prev => {
+                                  const newMap = new Map(prev);
+                                  newMap.delete(file);
+                                  return newMap;
+                                });
+                              }}
+                              style={{ padding: '6px 10px', fontSize: 11 }}
+                            >
+                              ✕ 제거
+                            </button>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn secondary"
+                            onClick={() => {
+                              setPreviewFiles(files);
+                              setShowPdfModal(true);
+                            }}
+                            style={{ padding: '6px 10px', fontSize: 11 }}
+                          >
+                            📄 미리보기 / 텍스트 선택
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
@@ -580,6 +669,124 @@ function MainScreen({ username, token }: { username: string; token: string }) {
         </div>
       )}
 
+      {/* PDF Viewer Modal */}
+      {showPdfModal && previewFiles.length > 0 && (
+        <div className="overlay" onClick={() => setShowPdfModal(false)}>
+          <div
+            className="card"
+            style={{
+              padding: '24px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              width: 900,
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
+              <div style={{ flex: 1 }}>
+                <h2 className="title" style={{ fontSize: 18, marginBottom: 4 }}>PDF 미리보기 및 텍스트 선택</h2>
+                <div className="small" style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  중요한 부분을 드래그하여 선택하거나, 스킵하고 전체 PDF를 사용할 수 있습니다
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setCurrentFileIndex(0);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16, textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                📄 {previewFiles[currentFileIndex]?.name}
+              </div>
+              {previewFiles.length > 1 && (
+                <div className="small" style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                  {currentFileIndex + 1} / {previewFiles.length} 파일
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <PdfViewer
+                file={previewFiles[currentFileIndex]}
+                onAreasSelect={(areas) => {
+                  const currentFile = previewFiles[currentFileIndex];
+                  const base64 = fileBase64Map.get(currentFile);
+                  if (base64) {
+                    setSelectedAreasByFile(prev => {
+                      const newMap = new Map(prev);
+                      if (areas.length > 0) {
+                        newMap.set(base64, areas);
+                      } else {
+                        newMap.delete(base64);
+                      }
+                      return newMap;
+                    });
+                  }
+                }}
+                selectedAreas={(() => {
+                  const base64 = fileBase64Map.get(previewFiles[currentFileIndex]);
+                  return base64 ? selectedAreasByFile.get(base64) || [] : [];
+                })()}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexShrink: 0 }}>
+              <button
+                className="btn secondary"
+                onClick={() => {
+                  setShowPdfModal(false);
+                  setCurrentFileIndex(0);
+                }}
+                style={{ flex: 1, padding: '10px', fontSize: 13 }}
+              >
+                ⏭️ 모두 스킵 (전체 PDF 사용)
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  // 마지막 파일이 아니면 다음 파일로 이동
+                  if (currentFileIndex < previewFiles.length - 1) {
+                    setCurrentFileIndex(prev => prev + 1);
+                  } else {
+                    // 마지막 파일이면 모달 닫기
+                    setShowPdfModal(false);
+                    setCurrentFileIndex(0);
+                  }
+                }}
+                style={{ flex: 1, padding: '10px', fontSize: 13 }}
+              >
+                {currentFileIndex < previewFiles.length - 1 ? '다음 자료 확인 →' : '✓ 완료'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loading Overlay */}
       {loading && (
         <div className="overlay">
@@ -589,8 +796,10 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                 onClick={() => {
                   setLoading(false);
                   setDownloadComplete(false);
-                  setFile(null);
+                  setFiles([]);
                   setPrompt('');
+                  setSelectedAreasByFile(new Map());
+                  setFileBase64Map(new Map());
                 }}
                 style={{
                   position: 'absolute',
@@ -628,33 +837,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   {action === 'summary' ? '요약이 완료되었습니다!' : '문제 생성이 완료되었습니다!'}
                 </div>
                 <div className="small" style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 12, padding: '0 16px' }}>
-                  다운로드가 자동으로 진행됩니다.<br />
-                  진행되지 않는다면{' '}
-                  <button
-                    onClick={async () => {
-                      if (lastDownloadData) {
-                        try {
-                          await downloadPdfFromUrl(lastDownloadData.filename, lastDownloadData.url);
-                        } catch (error) {
-                          console.error('Failed to download:', error);
-                          setError('다운로드에 실패했습니다.');
-                        }
-                      }
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text)',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      fontSize: 'inherit',
-                      fontFamily: 'inherit',
-                      padding: 0
-                    }}
-                  >
-                    여기를 클릭
-                  </button>
-                  해주세요
+                  다운로드가 자동으로 진행됩니다.
                 </div>
               </>
             )}

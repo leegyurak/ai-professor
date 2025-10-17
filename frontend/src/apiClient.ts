@@ -113,6 +113,7 @@ export interface GenerateParams {
   type: ActionType;
   prompt: string;
   pdfBase64?: string;
+  importantParts?: string[];
 }
 
 export interface GenerateResult {
@@ -124,12 +125,19 @@ export async function generate(params: GenerateParams, token?: string): Promise<
     ? '/api/documents/summary'
     : '/api/documents/exam-questions';
 
+  const requestBody: any = {
+    pdfBase64: params.pdfBase64 || '',
+    userPrompt: params.prompt
+  };
+
+  // Add importantParts if provided
+  if (params.importantParts && params.importantParts.length > 0) {
+    requestBody.importantParts = params.importantParts;
+  }
+
   const response = await http<{ resultPdfUrl: string }>(endpoint, {
     method: 'POST',
-    body: JSON.stringify({
-      pdfBase64: params.pdfBase64 || '',
-      userPrompt: params.prompt
-    }),
+    body: JSON.stringify(requestBody),
     authToken: token,
   });
 
