@@ -125,66 +125,158 @@ class PdfUtils(
                             font-family: 'Emoji';
                             src: local('Apple Color Emoji'), local('Segoe UI Emoji'), local('Noto Color Emoji');
                         }
+                        * {
+                            box-sizing: border-box;
+                        }
                         body {
-                            font-family: 'Noto Sans KR', Arial, 'Emoji', sans-serif;
-                            line-height: 1.6;
-                            margin: 40px;
-                            color: #333;
+                            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                            line-height: 1.8;
+                            margin: 50px 60px;
+                            color: #24292e;
+                            font-size: 14px;
+                            word-wrap: break-word;
                         }
                         h1, h2, h3, h4, h5, h6 {
-                            margin-top: 24px;
-                            margin-bottom: 16px;
+                            margin-top: 32px;
+                            margin-bottom: 20px;
                             font-weight: 600;
+                            line-height: 1.4;
+                            color: #1a1a1a;
                         }
-                        h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-                        h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-                        h3 { font-size: 1.25em; }
-                        p { margin-bottom: 16px; }
+                        h1:first-child, h2:first-child, h3:first-child {
+                            margin-top: 0;
+                        }
+                        h1 {
+                            font-size: 2.2em;
+                            border-bottom: 2px solid #e1e4e8;
+                            padding-bottom: 0.4em;
+                            margin-bottom: 24px;
+                        }
+                        h2 {
+                            font-size: 1.8em;
+                            border-bottom: 1px solid #e1e4e8;
+                            padding-bottom: 0.35em;
+                            margin-bottom: 20px;
+                        }
+                        h3 {
+                            font-size: 1.4em;
+                            margin-bottom: 16px;
+                        }
+                        h4 { font-size: 1.2em; }
+                        h5 { font-size: 1.1em; }
+                        h6 { font-size: 1em; color: #6a737d; }
+                        p {
+                            margin-top: 0;
+                            margin-bottom: 16px;
+                            text-align: justify;
+                        }
+                        strong, b {
+                            font-weight: 700;
+                            color: #1a1a1a;
+                        }
+                        em, i {
+                            font-style: italic;
+                        }
                         code {
-                            background-color: #f6f8fa;
-                            padding: 2px 4px;
-                            border-radius: 3px;
-                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
-                            font-size: 0.9em;
+                            background-color: rgba(27, 31, 35, 0.05);
+                            padding: 3px 6px;
+                            border-radius: 4px;
+                            font-family: 'D2 Coding', 'Noto Sans KR', 'SFMono-Regular', Consolas, monospace;
+                            font-size: 0.88em;
+                            color: #24292e;
+                            border: 1px solid rgba(27, 31, 35, 0.1);
                         }
                         pre {
                             background-color: #f6f8fa;
-                            padding: 16px;
-                            border-radius: 3px;
+                            padding: 18px;
+                            border-radius: 6px;
                             overflow-x: auto;
-                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
+                            margin: 16px 0;
+                            border: 1px solid #e1e4e8;
+                            font-family: 'D2 Coding', 'Noto Sans KR', 'SFMono-Regular', Consolas, monospace;
+                            font-size: 0.88em;
+                            line-height: 1.6;
                         }
                         pre code {
                             background-color: transparent;
                             padding: 0;
-                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
+                            border: none;
+                            border-radius: 0;
+                            font-size: 1em;
                         }
                         ul, ol {
+                            margin-top: 0;
                             margin-bottom: 16px;
-                            padding-left: 32px;
+                            padding-left: 2em;
+                        }
+                        ul ul, ul ol, ol ol, ol ul {
+                            margin-top: 8px;
+                            margin-bottom: 8px;
                         }
                         li {
+                            margin-bottom: 6px;
+                            line-height: 1.7;
+                        }
+                        li > p {
                             margin-bottom: 8px;
                         }
                         blockquote {
-                            border-left: 4px solid #ddd;
-                            padding-left: 16px;
-                            color: #666;
+                            border-left: 4px solid #dfe2e5;
+                            padding: 8px 16px;
+                            color: #6a737d;
                             margin: 16px 0;
+                            background-color: #f6f8fa;
+                            border-radius: 0 4px 4px 0;
+                        }
+                        blockquote > :first-child {
+                            margin-top: 0;
+                        }
+                        blockquote > :last-child {
+                            margin-bottom: 0;
                         }
                         table {
                             border-collapse: collapse;
                             width: 100%;
-                            margin-bottom: 16px;
+                            margin: 20px 0;
+                            display: table;
+                            overflow: auto;
+                            border-spacing: 0;
+                        }
+                        table tr {
+                            background-color: #ffffff;
+                            border-top: 1px solid #d0d7de;
+                        }
+                        table tr:nth-child(2n) {
+                            background-color: #f6f8fa;
                         }
                         th, td {
-                            border: 1px solid #ddd;
-                            padding: 8px;
+                            border: 1px solid #d0d7de;
+                            padding: 10px 14px;
                             text-align: left;
+                            vertical-align: top;
                         }
                         th {
                             background-color: #f6f8fa;
                             font-weight: 600;
+                            color: #24292e;
+                        }
+                        hr {
+                            height: 0.25em;
+                            padding: 0;
+                            margin: 24px 0;
+                            background-color: #e1e4e8;
+                            border: 0;
+                        }
+                        a {
+                            color: #0366d6;
+                            text-decoration: none;
+                        }
+                        a:hover {
+                            text-decoration: underline;
+                        }
+                        img {
+                            max-width: 100%;
+                            box-sizing: content-box;
                         }
                     </style>
                 </head>
