@@ -39,12 +39,12 @@ class DocumentProcessorImpl(
                 .mapIndexed { index, part -> "${index + 1}. $part" }
                 .joinToString("\n")
 
-        return """
-            $basePrompt
-
-            **중요: 다음 부분은 반드시 포함해주세요:**
-            $importantPartsText
-        """.trimIndent()
+        return buildString {
+            append(basePrompt)
+            append("\n\n")
+            append("**중요: 다음 부분은 반드시 포함해주세요:**\n")
+            append(importantPartsText)
+        }
     }
 
     private fun cleanBase64String(base64: String): String {
