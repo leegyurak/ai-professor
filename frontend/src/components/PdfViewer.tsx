@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
+import { createWorker } from 'tesseract.js';
 // Import pdfUtils to ensure worker initialization
 import '../utils/pdfUtils';
 
@@ -35,6 +36,10 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
   const [hasDragged, setHasDragged] = useState(false);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
+  const [pagesProcessingOCR, setPagesProcessingOCR] = useState<Set<number>>(new Set());
+  const ocrWorkerRef = useRef<any>(null);
 
   // Flatten all areas for display
   const selectedIndices = useMemo(() => {
@@ -116,7 +121,14 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     const loadPdf = async () => {
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({
+          data: arrayBuffer,
+          useSystemFonts: false,
+          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
+          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+          cMapPacked: true,
+          disableFontFace: false,
+        });
         const pdfDoc = await loadingTask.promise;
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
@@ -127,6 +139,39 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
     loadPdf();
   }, [file]);
+
+  // Initialize OCR worker
+  useEffect(() => {
+    const initWorker = async () => {
+      try {
+        const worker = await createWorker(['kor', 'eng'], 1, {
+          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
+        });
+
+        // Set parameters for better OCR performance
+        await worker.setParameters({
+          tessedit_pageseg_mode: '1', // Automatic page segmentation with OSD (Orientation and Script Detection)
+          tessedit_char_whitelist: '', // Allow all characters
+          preserve_interword_spaces: '1',
+        });
+
+        ocrWorkerRef.current = worker;
+        console.log('OCR worker initialized with optimized parameters');
+      } catch (error) {
+        console.error('Failed to initialize OCR worker:', error);
+      }
+    };
+
+    initWorker();
+
+    return () => {
+      if (ocrWorkerRef.current) {
+        ocrWorkerRef.current.terminate();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!pdf) return;
@@ -147,8 +192,13 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
       // Get container width for dynamic scaling
       const containerWidth = containerRef.current?.clientWidth || 800;
 
+      setIsProcessingOCR(true);
+      setOcrProgress({ current: 0, total: numPages });
+      setPagesProcessingOCR(new Set());
+
       // Render pages sequentially to avoid concurrent rendering issues
       for (let i = 1; i <= numPages; i++) {
+        setOcrProgress({ current: i, total: numPages });
         if (!isMounted) break;
 
         try {
@@ -171,10 +221,11 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
           // Clear canvas before rendering
           context.clearRect(0, 0, canvas.width, canvas.height);
 
-          // Render the page
+          // Render the page with text layer
           const renderTask = page.render({
             canvasContext: context,
             viewport: viewport,
+            intent: 'display',
           } as any);
 
           renderTasksRef.current.push(renderTask);
@@ -183,6 +234,8 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
           // Extract text content
           const textContent = await page.getTextContent();
+          const pageTextItems: TextLayerItem[] = [];
+
           textContent.items.forEach((item) => {
             if ('str' in item) {
               const textItem = item as TextItem;
@@ -202,8 +255,12 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
               // Calculate the font size (height) from the transform matrix
               const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
 
-              allTextItems.push({
-                text: textItem.str,
+              // Normalize text to handle encoding issues
+              // Use NFC (Canonical Composition) for consistent character representation
+              const normalizedText = textItem.str.normalize('NFC');
+
+              pageTextItems.push({
+                text: normalizedText,
                 x: left,
                 y: top - fontSize, // Adjust for baseline to top
                 width: textItem.width * viewport.scale,
@@ -214,6 +271,110 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
               });
             }
           });
+
+          // Run OCR only if text extraction found very little text
+          const totalTextLength = pageTextItems.reduce((sum, item) => sum + item.text.trim().length, 0);
+          const shouldRunOCR = totalTextLength < 100; // Only run OCR if less than 100 characters found
+
+          console.log(`Page ${i} - PDF.js extracted:`, {
+            itemCount: pageTextItems.length,
+            totalChars: totalTextLength,
+            sample: pageTextItems.slice(0, 3).map(item => item.text),
+            willRunOCR: shouldRunOCR,
+          });
+
+          if (shouldRunOCR && ocrWorkerRef.current) {
+            // Mark this page as processing OCR
+            setPagesProcessingOCR(prev => new Set([...prev, i - 1]));
+
+            try {
+              console.log(`Running OCR on page ${i} (found only ${totalTextLength} chars)...`);
+
+              // Create a temporary canvas for image preprocessing
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = canvas.width;
+              tempCanvas.height = canvas.height;
+              const tempCtx = tempCanvas.getContext('2d');
+
+              if (tempCtx) {
+                // Copy the original canvas
+                tempCtx.drawImage(canvas, 0, 0);
+
+                // Get image data for preprocessing
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imageData.data;
+
+                // Convert to grayscale and increase contrast
+                for (let j = 0; j < data.length; j += 4) {
+                  const avg = (data[j] + data[j + 1] + data[j + 2]) / 3;
+                  // Increase contrast: if pixel is darker than mid-gray, make it darker; if lighter, make it lighter
+                  const contrast = avg < 128 ? avg * 0.7 : avg * 1.2;
+                  const gray = Math.min(255, Math.max(0, contrast));
+                  data[j] = gray;     // R
+                  data[j + 1] = gray; // G
+                  data[j + 2] = gray; // B
+                }
+
+                tempCtx.putImageData(imageData, 0, 0);
+
+                // Run OCR with optimized settings
+                const { data: ocrData } = await ocrWorkerRef.current.recognize(tempCanvas, {
+                  rotateAuto: true,
+                });
+
+                console.log(`OCR Result for page ${i}:`, {
+                  confidence: ocrData.confidence,
+                  text: ocrData.text,
+                  wordCount: ocrData.words?.length || 0,
+                });
+
+                if (ocrData.words && ocrData.words.length > 0) {
+                  console.log(`OCR Words on page ${i}:`, ocrData.words.map((w: any) => ({
+                    text: w.text,
+                    confidence: w.confidence,
+                    bbox: w.bbox,
+                  })));
+
+                  ocrData.words.forEach((word: any) => {
+                    if (word.text.trim() && word.confidence > 30) { // Filter low confidence words
+                      pageTextItems.push({
+                        text: word.text,
+                        x: word.bbox.x0,
+                        y: word.bbox.y0,
+                        width: word.bbox.x1 - word.bbox.x0,
+                        height: word.bbox.y1 - word.bbox.y0,
+                        pageIndex: i - 1,
+                        canvasWidth: canvas.width,
+                        canvasHeight: canvas.height,
+                      });
+                    }
+                  });
+                  console.log(`OCR extracted ${ocrData.words.filter((w: any) => w.text.trim() && w.confidence > 30).length} words from page ${i} (filtered by confidence)`);
+                } else {
+                  console.log(`OCR found no words on page ${i}`);
+                }
+              }
+            } catch (ocrError) {
+              console.warn(`OCR failed for page ${i}:`, ocrError);
+            } finally {
+              // Remove this page from processing OCR
+              setPagesProcessingOCR(prev => {
+                const next = new Set(prev);
+                next.delete(i - 1);
+                console.log(`Page ${i} OCR completed, removed from processing set`);
+                return next;
+              });
+            }
+          } else if (!shouldRunOCR) {
+            console.log(`Skipping OCR for page ${i} (found ${totalTextLength} chars)`);
+          }
+
+          allTextItems.push(...pageTextItems);
+
+          // Update textItems incrementally after each page
+          if (isMounted) {
+            setTextItems([...allTextItems]);
+          }
         } catch (error) {
           if ((error as any)?.name !== 'RenderingCancelledException') {
             console.error(`Failed to render page ${i}:`, error);
@@ -222,7 +383,7 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
       }
 
       if (isMounted) {
-        setTextItems(allTextItems);
+        setIsProcessingOCR(false);
       }
     };
 
@@ -348,7 +509,9 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="small" style={{ color: 'var(--muted)', fontSize: 12 }}>
-          드래그하여 여러 영역 선택 가능
+          {isProcessingOCR
+            ? `OCR 처리 중... (${ocrProgress.current}/${ocrProgress.total} 페이지)`
+            : '드래그하여 여러 영역 선택 가능'}
         </div>
         {selectedIndices.size > 0 && (
           <button
@@ -437,18 +600,20 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                   const widthPercent = (item.width / item.canvasWidth) * 100;
                   const heightPercent = (item.height / item.canvasHeight) * 100;
 
+                  const isPageProcessingOCR = pagesProcessingOCR.has(i);
+
                   return (
                     <div
                       key={idx}
-                      onMouseDown={() => handleMouseDown(globalIdx)}
-                      onMouseEnter={() => handleMouseEnter(globalIdx)}
+                      onMouseDown={() => !isPageProcessingOCR && handleMouseDown(globalIdx)}
+                      onMouseEnter={() => !isPageProcessingOCR && handleMouseEnter(globalIdx)}
                       style={{
                         position: 'absolute',
                         left: `${leftPercent}%`,
                         top: `${topPercent}%`,
                         width: `${widthPercent}%`,
                         height: `${heightPercent}%`,
-                        cursor: 'text',
+                        cursor: isPageProcessingOCR ? 'wait' : 'text',
                         background: isSelected ? 'rgba(255, 235, 59, 0.4)' : 'transparent',
                         transition: 'background 0.1s',
                         pointerEvents: 'auto',
