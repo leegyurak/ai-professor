@@ -4,6 +4,7 @@ import { generate, getHistory, login, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
+import { initTwemoji } from './utils/emojiUtils';
 
 function LoginScreen({ onDone }: { onDone: (username: string, token: string) => void }) {
   const [username, setUsername] = useState('');
@@ -36,12 +37,12 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
   };
 
   return (
-    <div className="center" style={{ height: '100%', background: '#ffffff', padding: '12px' }}>
+    <div className="center" style={{ height: '100%', background: '#ffffff', padding: 'clamp(8px, 3vw, 12px)' }}>
       <div className="card" style={{ width: '100%', maxWidth: 400, maxHeight: '95vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px var(--shadow-md)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 16, flexShrink: 0 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🎓</div>
-          <h1 className="title" style={{ fontSize: 24, marginBottom: 6 }}>AI Professor</h1>
-          <div className="small" style={{ color: 'var(--muted)', fontSize: 12 }}>교육 자료 요약 및 문제 생성</div>
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(12px, 4vw, 16px)', flexShrink: 0 }}>
+          <div style={{ fontSize: 'clamp(32px, 10vw, 40px)', marginBottom: 'clamp(6px, 2vw, 8px)' }}>🎓</div>
+          <h1 className="title" style={{ fontSize: 'clamp(20px, 6vw, 24px)', marginBottom: 6 }}>AI Professor</h1>
+          <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(11px, 3vw, 12px)' }}>교육 자료 요약 및 문제 생성</div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
           <input
@@ -327,31 +328,31 @@ function MainScreen({ username, token }: { username: string; token: string }) {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
       {/* Header */}
       <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ fontSize: 20 }}>🎓</div>
-            <div>
-              <h1 className="title" style={{ fontSize: 16 }}>AI Professor</h1>
-              <div className="small" style={{ color: 'var(--muted)', marginTop: 1, fontSize: 11 }}>안녕하세요, <b>{username}</b>님 👋</div>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px)', gap: 'clamp(8px, 2vw, 12px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1.5vw, 6px)', minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 'clamp(18px, 5vw, 20px)', flexShrink: 0 }}>🎓</div>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <h1 className="title" style={{ fontSize: 'clamp(14px, 4vw, 16px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI Professor</h1>
+              <div className="small" style={{ color: 'var(--muted)', marginTop: 1, fontSize: 'clamp(10px, 2.5vw, 11px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>안녕하세요, <b>{username}</b>님 👋</div>
             </div>
           </div>
-          <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', padding: '5px 8px', transition: 'color 0.2s ease', whiteSpace: 'nowrap' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>🚪 로그아웃</button>
+          <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 'clamp(10px, 2.5vw, 11px)', fontFamily: 'inherit', padding: 'clamp(4px, 1.5vw, 5px) clamp(6px, 2vw, 8px)', transition: 'color 0.2s ease', whiteSpace: 'nowrap', flexShrink: 0 }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>🚪 로그아웃</button>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ background: 'var(--panel)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 12px', display: 'flex', gap: 0 }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 clamp(8px, 2.5vw, 12px)', display: 'flex', gap: 0 }}>
           <button
             onClick={() => setCurrentTab('generate')}
             style={{
-              padding: '10px 12px',
+              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
               border: 'none',
               borderBottom: currentTab === 'generate' ? '2px solid var(--text)' : '2px solid transparent',
               background: 'transparent',
               color: currentTab === 'generate' ? 'var(--text)' : 'var(--muted)',
               cursor: 'pointer',
-              fontSize: 12,
+              fontSize: 'clamp(11px, 3vw, 12px)',
               fontWeight: currentTab === 'generate' ? 600 : 400,
               transition: 'all 0.2s ease',
               fontFamily: 'inherit',
@@ -363,13 +364,13 @@ function MainScreen({ username, token }: { username: string; token: string }) {
           <button
             onClick={() => setCurrentTab('history')}
             style={{
-              padding: '10px 12px',
+              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
               border: 'none',
               borderBottom: currentTab === 'history' ? '2px solid var(--text)' : '2px solid transparent',
               background: 'transparent',
               color: currentTab === 'history' ? 'var(--text)' : 'var(--muted)',
               cursor: 'pointer',
-              fontSize: 12,
+              fontSize: 'clamp(11px, 3vw, 12px)',
               fontWeight: currentTab === 'history' ? 600 : 400,
               transition: 'all 0.2s ease',
               fontFamily: 'inherit',
@@ -383,13 +384,13 @@ function MainScreen({ username, token }: { username: string; token: string }) {
 
       {/* Main Content */}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '12px' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: 'clamp(8px, 2.5vw, 12px)' }}>
           {currentTab === 'generate' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 2.5vw, 12px)', width: '100%', margin: '0 auto' }}>
               {/* Combined Form */}
-              <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column' }}>
+              <div className="card" style={{ padding: 'clamp(12px, 4vw, 16px)', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>PDF 파일 업로드</h3>
+                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>PDF 파일 업로드</h3>
                   <DropZone
                     onFiles={async (uploadedFiles) => {
                       const validFiles: File[] = [];
@@ -432,17 +433,17 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   {files.length > 0 && (
                     <>
                       <div className="space" />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(6px, 2vw, 8px)' }}>
                         {files.map((file, index) => (
-                          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <div className="chip" style={{ width: 'fit-content', padding: '6px 10px', fontSize: 11 }}>
+                          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(6px, 2vw, 8px)', flexWrap: 'wrap' }}>
+                            <div className="chip" style={{ width: 'fit-content', padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)', wordBreak: 'break-all' }}>
                               📎 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
                             </div>
                             {(() => {
                               const base64 = fileBase64Map.get(file);
                               const areas = base64 ? selectedAreasByFile.get(base64) : undefined;
                               return areas && areas.length > 0 ? (
-                                <div className="chip" style={{ padding: '6px 10px', fontSize: 11, background: 'rgba(255, 235, 59, 0.3)', border: '1px solid rgba(255, 193, 7, 0.5)' }}>
+                                <div className="chip" style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)', background: 'rgba(255, 235, 59, 0.3)', border: '1px solid rgba(255, 193, 7, 0.5)' }}>
                                   ✓ {areas.length}개 영역 선택됨
                                 </div>
                               ) : null;
@@ -468,20 +469,20 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                                   return newMap;
                                 });
                               }}
-                              style={{ padding: '6px 10px', fontSize: 11 }}
+                              style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)' }}
                             >
                               ✕ 제거
                             </button>
                           </div>
                         ))}
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 'clamp(6px, 2vw, 8px)', flexWrap: 'wrap' }}>
                           <button
                             className="btn secondary"
                             onClick={() => {
                               setPreviewFiles(files);
                               setShowPdfModal(true);
                             }}
-                            style={{ padding: '6px 10px', fontSize: 11 }}
+                            style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)' }}
                           >
                             📄 미리보기 / 텍스트 선택
                           </button>
@@ -491,52 +492,52 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   )}
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: '16px 0', flexShrink: 0 }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: 'clamp(12px, 4vw, 16px) 0', flexShrink: 0 }} />
 
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>작업 유형 선택</h3>
+                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>작업 유형 선택</h3>
                   <div className="toolbar">
                     <button
                       className={`btn ${action === 'summary' ? '' : 'secondary'}`}
                       onClick={() => setAction('summary')}
-                      style={{ flex: 1, padding: '12px 16px', fontSize: 13 }}
+                      style={{ flex: 1, padding: 'clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
                     >
                       📝 핵심 요약
                     </button>
                     <button
                       className={`btn ${action === 'quiz' ? '' : 'secondary'}`}
                       onClick={() => setAction('quiz')}
-                      style={{ flex: 1, padding: '12px 16px', fontSize: 13 }}
+                      style={{ flex: 1, padding: 'clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
                     >
                       📋 예상 문제
                     </button>
                   </div>
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: '16px 0', flexShrink: 0 }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: 'clamp(12px, 4vw, 16px) 0', flexShrink: 0 }} />
 
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>요청 사항 입력</h3>
+                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>요청 사항 입력</h3>
                   <textarea
                     className="input"
                     placeholder="💬 원하는 요청을 입력하세요 (예: 이 자료의 핵심 내용을 3페이지로 요약해주세요)"
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
-                    style={{ minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, width: '100%', boxSizing: 'border-box' }}
+                    style={{ minHeight: 'clamp(80px, 25vw, 100px)', resize: 'vertical', fontFamily: 'inherit', fontSize: 'clamp(12px, 3.2vw, 13px)', width: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div className="space" style={{ flexShrink: 0 }} />
-                <button className="btn" onClick={onSend} disabled={!canSend || loading} style={{ width: '100%', padding: '12px', fontSize: 13, flexShrink: 0 }}>
+                <button className="btn" onClick={onSend} disabled={!canSend || loading} style={{ width: '100%', padding: 'clamp(10px, 3vw, 12px)', fontSize: 'clamp(12px, 3.2vw, 13px)', flexShrink: 0 }}>
                   {loading ? '⏳ 처리 중...' : '✨ 생성하기'}
                 </button>
               </div>
             </div>
           ) : (
             /* History Tab */
-            <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ marginBottom: 14, flexShrink: 0 }}>
-                <h2 className="title" style={{ fontSize: 18 }}>📚 작업 내역</h2>
-                <div className="small" style={{ color: 'var(--muted)', marginTop: 3, fontSize: 12 }}>최근 작업한 내역을 확인하고 다운로드할 수 있습니다</div>
+            <div className="card" style={{ padding: 'clamp(12px, 4vw, 16px)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ marginBottom: 'clamp(10px, 3.5vw, 14px)', flexShrink: 0 }}>
+                <h2 className="title" style={{ fontSize: 'clamp(16px, 4.5vw, 18px)' }}>📚 작업 내역</h2>
+                <div className="small" style={{ color: 'var(--muted)', marginTop: 3, fontSize: 'clamp(11px, 3vw, 12px)' }}>최근 작업한 내역을 확인하고 다운로드할 수 있습니다</div>
               </div>
               {historyLoading ? (
                 <div className="center" style={{ padding: '60px 0' }}>
@@ -567,22 +568,22 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                         onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span className="chip" style={{ fontSize: 10, flexShrink: 0 }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 1.5vw, 6px)', minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1.5vw, 6px)', flexWrap: 'wrap' }}>
+                            <span className="chip" style={{ fontSize: 'clamp(9px, 2.5vw, 10px)', flexShrink: 0 }}>
                               {it.processingType === 'SUMMARY' ? '📝 요약' : '📋 문제'}
                             </span>
-                            <div className="small" style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+                            <div className="small" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: 'var(--muted)', flexShrink: 0 }}>
                               {new Date(it.createdAt).toLocaleDateString()}
                             </div>
                           </div>
-                          <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.3' }}>
+                          <div style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.3' }}>
                             {it.userPrompt}
                           </div>
                         </div>
                         <button
                           className="btn"
-                          style={{ padding: '6px 10px', fontSize: 11, flexShrink: 0, alignSelf: 'flex-start' }}
+                          style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)', flexShrink: 0, alignSelf: 'flex-start' }}
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
@@ -685,10 +686,10 @@ function MainScreen({ username, token }: { username: string; token: string }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
-              <div style={{ flex: 1 }}>
-                <h2 className="title" style={{ fontSize: 18, marginBottom: 4 }}>PDF 미리보기 및 텍스트 선택</h2>
-                <div className="small" style={{ color: 'var(--muted)', fontSize: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'clamp(12px, 4vw, 16px)', flexShrink: 0, gap: 'clamp(8px, 2vw, 12px)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h2 className="title" style={{ fontSize: 'clamp(16px, 4.5vw, 18px)', marginBottom: 'clamp(3px, 1vw, 4px)' }}>PDF 미리보기 및 텍스트 선택</h2>
+                <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(11px, 3vw, 12px)', lineHeight: '1.4' }}>
                   중요한 부분을 드래그하여 선택하거나, 스킵하고 전체 PDF를 사용할 수 있습니다
                 </div>
               </div>
@@ -719,12 +720,12 @@ function MainScreen({ username, token }: { username: string; token: string }) {
               </button>
             </div>
 
-            <div style={{ marginBottom: 16, textAlign: 'center', flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+            <div style={{ marginBottom: 'clamp(12px, 4vw, 16px)', textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, color: 'var(--text)', wordBreak: 'break-all', padding: '0 clamp(8px, 2vw, 12px)' }}>
                 📄 {previewFiles[currentFileIndex]?.name}
               </div>
               {previewFiles.length > 1 && (
-                <div className="small" style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+                <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(11px, 3vw, 12px)', marginTop: 'clamp(3px, 1vw, 4px)' }}>
                   {currentFileIndex + 1} / {previewFiles.length} 파일
                 </div>
               )}
@@ -755,14 +756,14 @@ function MainScreen({ username, token }: { username: string; token: string }) {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 'clamp(6px, 2vw, 8px)', marginTop: 'clamp(12px, 4vw, 16px)', flexShrink: 0 }}>
               <button
                 className="btn secondary"
                 onClick={() => {
                   setShowPdfModal(false);
                   setCurrentFileIndex(0);
                 }}
-                style={{ flex: 1, padding: '10px', fontSize: 13 }}
+                style={{ flex: 1, padding: 'clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
               >
                 ⏭️ 모두 스킵 (전체 PDF 사용)
               </button>
@@ -778,7 +779,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                     setCurrentFileIndex(0);
                   }
                 }}
-                style={{ flex: 1, padding: '10px', fontSize: 13 }}
+                style={{ flex: 1, padding: 'clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
               >
                 {currentFileIndex < previewFiles.length - 1 ? '다음 자료 확인 →' : '✓ 완료'}
               </button>
@@ -861,6 +862,12 @@ export default function App() {
       return null;
     }
   });
+
+  // Initialize Twemoji for consistent emoji display across all platforms
+  useEffect(() => {
+    const cleanup = initTwemoji();
+    return cleanup;
+  }, []);
 
   console.log('[App] session state:', session);
 

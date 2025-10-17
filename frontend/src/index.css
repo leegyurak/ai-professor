@@ -92,15 +92,16 @@ body {
 
 .input, textarea.input {
   width: 100%;
-  padding: 12px 16px;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px);
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
-  font-size: 14px;
+  font-size: clamp(13px, 3.5vw, 14px);
   outline: none;
   transition: all 0.2s ease;
   font-weight: 400;
+  line-height: 1.5;
 }
 
 .input:focus, textarea.input:focus {
@@ -187,12 +188,14 @@ body {
 .dropzone {
   border: 2px dashed var(--border);
   border-radius: 10px;
-  padding: 40px 20px;
+  padding: clamp(24px, 8vw, 40px) clamp(16px, 5vw, 20px);
   text-align: center;
   background: var(--bg-secondary);
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: clamp(12px, 3.2vw, 14px);
+  line-height: 1.5;
 }
 
 .dropzone:hover {
@@ -263,6 +266,7 @@ body {
   justify-content: center;
   backdrop-filter: blur(8px);
   z-index: 1000;
+  padding: clamp(8px, 2vw, 16px);
 }
 
 .alert {
@@ -332,100 +336,97 @@ body {
   }
 }
 
+/* Twemoji styles - ensures consistent emoji display across all platforms */
+img.emoji {
+  height: 1em;
+  width: 1em;
+  margin: 0 0.05em 0 0.1em;
+  vertical-align: -0.1em;
+  display: inline-block;
+}
+
 /* Mobile optimizations for screens 450px and below */
 @media (max-width: 450px) {
-  /* Reduce padding for mobile */
-  .container {
-    padding: 12px;
+  /* Ensure touch targets are at least 44x44px */
+  button, .btn, input[type="button"], input[type="submit"] {
+    min-height: 44px;
   }
 
-  .card {
-    padding: 12px;
-    border-radius: 8px;
+  /* Better text wrapping on mobile */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
-  /* Adjust title sizes */
-  .title {
-    font-size: 16px;
-  }
-
-  /* Make dropzone more compact */
-  .dropzone {
-    padding: 20px 12px;
-    font-size: 13px;
-  }
-
-  /* Smaller input fields */
-  .input, textarea.input {
-    padding: 8px 10px;
-    font-size: 13px;
-  }
-
-  /* Adjust button sizes */
-  .btn {
-    padding: 8px 14px;
-    font-size: 12px;
-  }
-
-  .btn.ghost {
-    padding: 6px 10px;
-    font-size: 11px;
-  }
-
-  /* Smaller chips */
-  .chip {
-    padding: 3px 6px;
-    font-size: 10px;
-    gap: 3px;
-  }
-
-  /* Smaller text */
-  .small {
-    font-size: 11px;
-  }
-
-  /* Adjust alert padding */
-  .alert {
-    padding: 8px 10px;
-    font-size: 12px;
+  /* Prevent horizontal scrolling */
+  body {
+    overflow-x: hidden;
   }
 
   /* Make overlay cards more mobile-friendly */
   .overlay .card {
-    margin: 12px;
-    padding: 16px !important;
-    max-width: calc(100% - 24px) !important;
+    margin: 8px;
+    max-width: calc(100% - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
     min-width: unset !important;
-    width: calc(100% - 24px) !important;
+    width: calc(100% - 16px) !important;
+    overflow: auto;
   }
 
-  /* Adjust spinner size */
-  .spinner {
-    width: 18px;
-    height: 18px;
-    border-width: 2px;
-  }
-
-  /* Better toolbar wrapping on mobile */
+  /* Better spacing for mobile */
   .toolbar {
-    gap: 6px;
+    gap: clamp(6px, 2vw, 8px);
   }
 
-  /* Reduce spacing */
   .space {
-    height: 12px;
+    height: clamp(10px, 3vw, 16px);
   }
 
-  /* Mobile-specific utility classes */
-  .mobile-full-width {
-    width: 100% !important;
+  /* Improve readability on small screens */
+  .small {
+    line-height: 1.4;
   }
 
-  .mobile-text-small {
-    font-size: 11px !important;
+  /* Better tap targets for chips */
+  .chip {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Additional optimizations for very small screens */
+@media (max-width: 375px) {
+  /* Reduce horizontal padding on very small screens */
+  .card {
+    padding: clamp(10px, 3vw, 12px) !important;
   }
 
-  .mobile-padding-sm {
-    padding: 6px !important;
+  /* Make buttons slightly smaller but still tappable */
+  .btn {
+    min-height: 40px;
+  }
+
+  /* Ensure overlays don't cause issues */
+  .overlay {
+    padding: 4px;
+  }
+}
+
+/* Landscape mode on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Reduce vertical padding in landscape */
+  .card {
+    padding: 8px 12px !important;
+  }
+
+  /* Smaller header in landscape */
+  .title {
+    font-size: clamp(14px, 4vw, 16px) !important;
+  }
+
+  /* Compact spacing */
+  .space {
+    height: 8px;
   }
 }
