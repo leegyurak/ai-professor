@@ -400,11 +400,11 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     };
   }, [pdf, numPages]);
 
-  const handleMouseDown = (index: number) => {
+  const handleStart = (index: number) => {
     setIsSelecting(true);
     setSelectionStart(index);
 
-    // If already selected, mark for potential deselection (will be checked on mouseup)
+    // If already selected, mark for potential deselection (will be checked on end)
     if (selectedIndices.has(index)) {
       setHasDragged(false); // Only set false if clicking already selected item
       return;
@@ -415,7 +415,7 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     setCurrentSelection(new Set([index]));
   };
 
-  const handleMouseEnter = (index: number) => {
+  const handleMove = (index: number) => {
     if (isSelecting && selectionStart !== null) {
       setHasDragged(true); // Mark that dragging occurred
 
@@ -454,7 +454,7 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     }
   };
 
-  const handleMouseUp = () => {
+  const handleEnd = () => {
     const clickedIndex = selectionStart;
 
     // Helper function to convert indices to text
@@ -502,6 +502,21 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     setSelectionAreas([]);
     setCurrentSelection(new Set());
     onAreasSelect([]);
+  };
+
+  // Handle touch move at container level for better drag support
+  const handleContainerTouchMove = (e: React.TouchEvent) => {
+    if (!isSelecting) return;
+
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    if (element && element.hasAttribute('data-text-index')) {
+      const idx = parseInt(element.getAttribute('data-text-index')!, 10);
+      if (!isNaN(idx)) {
+        handleMove(idx);
+      }
+    }
   };
 
   return (
@@ -559,8 +574,11 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
           borderRadius: 4,
           background: '#f5f5f5',
         }}
-        onMouseUp={handleMouseUp}
+        onMouseUp={handleEnd}
         onMouseLeave={() => setIsSelecting(false)}
+        onTouchEnd={handleEnd}
+        onTouchMove={handleContainerTouchMove}
+        onTouchCancel={() => setIsSelecting(false)}
       >
         {Array.from({ length: numPages }, (_, i) => (
           <div
@@ -601,11 +619,20 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
                   const isPageProcessingOCR = pagesProcessingOCR.has(i);
 
+                  const handleTouchStart = (e: React.TouchEvent) => {
+                    if (isPageProcessingOCR) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleStart(globalIdx);
+                  };
+
                   return (
                     <div
                       key={idx}
-                      onMouseDown={() => !isPageProcessingOCR && handleMouseDown(globalIdx)}
-                      onMouseEnter={() => !isPageProcessingOCR && handleMouseEnter(globalIdx)}
+                      data-text-index={globalIdx}
+                      onMouseDown={() => !isPageProcessingOCR && handleStart(globalIdx)}
+                      onMouseEnter={() => !isPageProcessingOCR && handleMove(globalIdx)}
+                      onTouchStart={handleTouchStart}
                       style={{
                         position: 'absolute',
                         left: `${leftPercent}%`,
@@ -616,6 +643,9 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                         background: isSelected ? 'rgba(255, 235, 59, 0.4)' : 'transparent',
                         transition: 'background 0.1s',
                         pointerEvents: 'auto',
+                        touchAction: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
                       }}
                     />
                   );

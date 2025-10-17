@@ -82,6 +82,16 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
 
 function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   const [drag, setDrag] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div
       className={`dropzone ${drag ? 'drag' : ''}`}
@@ -93,10 +103,19 @@ function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
         if (files.length > 0) onFiles(files);
       }}
     >
-      <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
-      <div>PDF 파일을 드래그하거나 선택하세요 (복수 선택 가능)</div>
+      <div style={{ fontSize: 'clamp(24px, 8vw, 32px)', marginBottom: 'clamp(6px, 2vw, 8px)' }}>📄</div>
+      <div style={{ fontSize: 'clamp(12px, 3.2vw, 14px)', lineHeight: '1.5' }}>
+        {isMobile ? (
+          <>
+            PDF 파일을 드래그하거나 선택하세요<br />
+            <span style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: 'var(--muted)' }}>(복수 선택 가능)</span>
+          </>
+        ) : (
+          'PDF 파일을 드래그하거나 선택하세요 (복수 선택 가능)'
+        )}
+      </div>
       <div className="space" />
-      <label className="btn ghost" htmlFor="file-input">📁 파일 선택</label>
+      <label className="btn ghost" htmlFor="file-input" style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>📁 파일 선택</label>
       <input id="file-input" type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={(e) => {
         const files = Array.from(e.currentTarget.files || []);
         if (files.length > 0) onFiles(files);
@@ -105,7 +124,7 @@ function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   );
 }
 
-const LOADING_MESSAGES = [
+const LOADING_MESSAGES_DESKTOP = [
   '🎓 교수님이 자료를 읽고 계십니다...',
   '📝 교수님이 핵심 내용을 정리하고 있습니다...',
   '🤔 교수님이 문제를 고민하고 있습니다...',
@@ -117,6 +136,20 @@ const LOADING_MESSAGES = [
   '🔍 교수님이 세밀하게 검토하고 있습니다...',
   '😅 교수님이 당신은 장학금 받을 생각하지 말라네요...',
   '✨ 교수님이 마무리 작업을 하고 있습니다...',
+];
+
+const LOADING_MESSAGES_MOBILE = [
+  '🎓 자료를 읽고 있습니다...',
+  '📝 핵심 내용 정리 중...',
+  '🤔 문제를 고민 중...',
+  '✍️ 문제를 만들고 있습니다...',
+  '📚 중요 부분 체크 중...',
+  '💭 깊이 생각하고 있습니다...',
+  '😌 잠시 쉬고 있습니다...',
+  '📖 내용을 확인 중...',
+  '🔍 세밀하게 검토 중...',
+  '😅 거의 다 끝났습니다...',
+  '✨ 마무리 작업 중...',
 ];
 
 function MainScreen({ username, token }: { username: string; token: string }) {
@@ -138,6 +171,28 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [previewFiles, setPreviewFiles] = useState<File[]>([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [autoCloseTimeoutId, setAutoCloseTimeoutId] = useState<number | null>(null);
+
+  // Detect screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Cleanup timeout when component unmounts or loading state changes
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimeoutId !== null) {
+        clearTimeout(autoCloseTimeoutId);
+      }
+    };
+  }, [autoCloseTimeoutId]);
+
+  const LOADING_MESSAGES = isMobile ? LOADING_MESSAGES_MOBILE : LOADING_MESSAGES_DESKTOP;
 
   const canSend = useMemo(() => prompt.trim().length > 0 && files.length > 0, [prompt, files]);
 
@@ -297,14 +352,20 @@ function MainScreen({ username, token }: { username: string; token: string }) {
       }
 
       // 10초 후 자동으로 오버레이 닫기
-      setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
+        // 먼저 로딩 상태를 false로 변경하여 모달을 제거
         setLoading(false);
-        setDownloadComplete(false);
-        setFiles([]);
-        setPrompt('');
-        setSelectedAreasByFile(new Map());
-        setFileBase64Map(new Map());
+        // 다음 틱에서 나머지 state 정리
+        setTimeout(() => {
+          setDownloadComplete(false);
+          setFiles([]);
+          setPrompt('');
+          setSelectedAreasByFile(new Map());
+          setFileBase64Map(new Map());
+          setAutoCloseTimeoutId(null);
+        }, 0);
       }, 10000);
+      setAutoCloseTimeoutId(timeoutId);
     } catch (e: any) {
       setError(e?.message || '요청 중 오류가 발생했습니다.');
       setLoading(false);
@@ -436,9 +497,56 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(6px, 2vw, 8px)' }}>
                         {files.map((file, index) => (
                           <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(6px, 2vw, 8px)', flexWrap: 'wrap' }}>
-                            <div className="chip" style={{ width: 'fit-content', padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)', wordBreak: 'break-all' }}>
-                              📎 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </div>
+                            <button
+                              className="btn secondary"
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: 'clamp(10px, 2.8vw, 11px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                maxWidth: '100%',
+                                cursor: 'default',
+                                minHeight: '32px',
+                                height: '32px'
+                              }}
+                            >
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
+                                📎 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </span>
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newFiles = files.filter((_, i) => i !== index);
+                                  setFiles(newFiles);
+                                  // 파일 제거 시 해당 파일의 선택된 영역도 제거
+                                  const base64 = fileBase64Map.get(file);
+                                  if (base64) {
+                                    setSelectedAreasByFile(prev => {
+                                      const newMap = new Map(prev);
+                                      newMap.delete(base64);
+                                      return newMap;
+                                    });
+                                  }
+                                  // base64 매핑도 제거
+                                  setFileBase64Map(prev => {
+                                    const newMap = new Map(prev);
+                                    newMap.delete(file);
+                                    return newMap;
+                                  });
+                                }}
+                                style={{
+                                  cursor: 'pointer',
+                                  color: 'var(--muted)',
+                                  transition: 'color 0.2s',
+                                  flexShrink: 0
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--danger)'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
+                              >
+                                ✕
+                              </span>
+                            </button>
                             {(() => {
                               const base64 = fileBase64Map.get(file);
                               const areas = base64 ? selectedAreasByFile.get(base64) : undefined;
@@ -448,31 +556,6 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                                 </div>
                               ) : null;
                             })()}
-                            <button
-                              className="btn secondary"
-                              onClick={() => {
-                                const newFiles = files.filter((_, i) => i !== index);
-                                setFiles(newFiles);
-                                // 파일 제거 시 해당 파일의 선택된 영역도 제거
-                                const base64 = fileBase64Map.get(file);
-                                if (base64) {
-                                  setSelectedAreasByFile(prev => {
-                                    const newMap = new Map(prev);
-                                    newMap.delete(base64);
-                                    return newMap;
-                                  });
-                                }
-                                // base64 매핑도 제거
-                                setFileBase64Map(prev => {
-                                  const newMap = new Map(prev);
-                                  newMap.delete(file);
-                                  return newMap;
-                                });
-                              }}
-                              style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)' }}
-                            >
-                              ✕ 제거
-                            </button>
                           </div>
                         ))}
                         <div style={{ display: 'flex', gap: 'clamp(6px, 2vw, 8px)', flexWrap: 'wrap' }}>
@@ -482,7 +565,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                               setPreviewFiles(files);
                               setShowPdfModal(true);
                             }}
-                            style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)' }}
+                            style={{ padding: '4px 10px', fontSize: 'clamp(10px, 2.8vw, 11px)', minHeight: '32px', height: '32px' }}
                           >
                             📄 미리보기 / 텍스트 선택
                           </button>
@@ -520,7 +603,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                   <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>요청 사항 입력</h3>
                   <textarea
                     className="input"
-                    placeholder="💬 원하는 요청을 입력하세요 (예: 이 자료의 핵심 내용을 3페이지로 요약해주세요)"
+                    placeholder={isMobile ? "💬 원하는 요청을 입력하세요\n(예: 핵심 내용을 3페이지로 요약해주세요)" : "💬 원하는 요청을 입력하세요 (예: 이 자료의 핵심 내용을 3페이지로 요약해주세요)"}
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     style={{ minHeight: 'clamp(80px, 25vw, 100px)', resize: 'vertical', fontFamily: 'inherit', fontSize: 'clamp(12px, 3.2vw, 13px)', width: '100%', boxSizing: 'border-box' }}
@@ -790,11 +873,15 @@ function MainScreen({ username, token }: { username: string; token: string }) {
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="overlay">
-          <div className="card center" style={{ gap: 16, padding: 40, boxShadow: '0 8px 24px var(--shadow-lg)', flexDirection: 'column', position: 'relative', minWidth: 500 }}>
+        <div className="overlay" key="loading-overlay">
+          <div className="card center" style={{ gap: 16, padding: 40, boxShadow: '0 8px 24px var(--shadow-lg)', flexDirection: 'column', position: 'relative', minWidth: 500 }} key={downloadComplete ? 'complete' : 'loading'}>
             {downloadComplete && (
               <button
                 onClick={() => {
+                  if (autoCloseTimeoutId !== null) {
+                    clearTimeout(autoCloseTimeoutId);
+                    setAutoCloseTimeoutId(null);
+                  }
                   setLoading(false);
                   setDownloadComplete(false);
                   setFiles([]);
@@ -827,17 +914,27 @@ function MainScreen({ username, token }: { username: string; token: string }) {
             )}
             {!downloadComplete ? (
               <>
-                <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
-                <div style={{ fontSize: 15, fontWeight: 500, textAlign: 'center', padding: '0 16px' }}>{LOADING_MESSAGES[loadingMessageIndex]}</div>
-                <div className="small" style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 12, padding: '0 16px' }}>⏱️ 최대 15분 정도 걸리니 바람이라도 쐬고 오는 거 어때요?</div>
+                <div className="spinner" style={{ width: 'clamp(24px, 8vw, 32px)', height: 'clamp(24px, 8vw, 32px)', borderWidth: 'clamp(2px, 0.5vw, 3px)' }} />
+                <div style={{ fontSize: 'clamp(13px, 3.8vw, 15px)', fontWeight: 500, textAlign: 'center', padding: '0 clamp(12px, 4vw, 16px)', lineHeight: '1.4' }}>{LOADING_MESSAGES[loadingMessageIndex]}</div>
+                <div className="small" style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 'clamp(11px, 3vw, 12px)', padding: '0 clamp(12px, 4vw, 16px)', lineHeight: '1.5' }}>
+                  {isMobile ? (
+                    <>⏱️ 최대 15분 정도 걸리니<br />바람이라도 쐬고 오세요!</>
+                  ) : (
+                    <>⏱️ 최대 15분 정도 걸리니 바람이라도 쐬고 오는 거 어때요?</>
+                  )}
+                </div>
               </>
             ) : (
               <>
-                <div style={{ fontSize: 48 }}>✅</div>
-                <div style={{ fontSize: 15, fontWeight: 500, textAlign: 'center', padding: '0 16px' }}>
-                  {action === 'summary' ? '요약이 완료되었습니다!' : '문제 생성이 완료되었습니다!'}
+                <div style={{ fontSize: 'clamp(40px, 12vw, 48px)' }}>✅</div>
+                <div style={{ fontSize: 'clamp(13px, 3.8vw, 15px)', fontWeight: 500, textAlign: 'center', padding: '0 clamp(12px, 4vw, 16px)', lineHeight: '1.4' }}>
+                  {isMobile ? (
+                    action === 'summary' ? '요약 완료!' : '문제 생성 완료!'
+                  ) : (
+                    action === 'summary' ? '요약이 완료되었습니다!' : '문제 생성이 완료되었습니다!'
+                  )}
                 </div>
-                <div className="small" style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 12, padding: '0 16px' }}>
+                <div className="small" style={{ color: 'var(--muted)', textAlign: 'center', fontSize: 'clamp(11px, 3vw, 12px)', padding: '0 clamp(12px, 4vw, 16px)', lineHeight: '1.5' }}>
                   다운로드가 자동으로 진행됩니다.
                 </div>
               </>
