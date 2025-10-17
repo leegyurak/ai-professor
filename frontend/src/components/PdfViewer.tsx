@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 // Import pdfUtils to ensure worker initialization
 import '../utils/pdfUtils';
 
@@ -152,8 +152,7 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
         // Set parameters for better OCR performance
         await worker.setParameters({
-          tessedit_pageseg_mode: '1', // Automatic page segmentation with OSD (Orientation and Script Detection)
-          tessedit_char_whitelist: '', // Allow all characters
+          tessedit_pageseg_mode: PSM.AUTO_OSD, // Automatic page segmentation with OSD (Orientation and Script Detection)
           preserve_interword_spaces: '1',
         });
 
