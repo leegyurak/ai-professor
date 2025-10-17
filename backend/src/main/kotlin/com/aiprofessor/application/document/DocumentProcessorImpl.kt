@@ -26,6 +26,27 @@ class DocumentProcessorImpl(
         private const val DEFAULT_USER_PROMPT = "Please analyze this document."
     }
 
+    private fun buildUserPromptWithImportantParts(
+        basePrompt: String,
+        importantParts: List<String>?,
+    ): String {
+        if (importantParts.isNullOrEmpty()) {
+            return basePrompt
+        }
+
+        val importantPartsText =
+            importantParts
+                .mapIndexed { index, part -> "${index + 1}. $part" }
+                .joinToString("\n")
+
+        return """
+            $basePrompt
+
+            **중요: 다음 부분은 반드시 포함해주세요:**
+            $importantPartsText
+        """.trimIndent()
+    }
+
     private fun cleanBase64String(base64: String): String {
         // Remove data URL prefix if present (e.g., "data:application/pdf;base64,")
         return base64
@@ -67,7 +88,8 @@ class DocumentProcessorImpl(
         println("Extracted text length: ${extractedText.length} characters")
 
         // Send to Claude API with extracted text
-        val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
+        val baseUserPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
+        val userPrompt = buildUserPromptWithImportantParts(baseUserPrompt, request.importantParts)
         val markdownResponse =
             claudeApiClient.sendMessage(
                 systemPrompt = summaryPrompt,
@@ -120,7 +142,8 @@ class DocumentProcessorImpl(
         println("Extracted text length: ${extractedText.length} characters")
 
         // Send to Claude API with extracted text
-        val userPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
+        val baseUserPrompt = request.userPrompt ?: DEFAULT_USER_PROMPT
+        val userPrompt = buildUserPromptWithImportantParts(baseUserPrompt, request.importantParts)
         val markdownResponse =
             claudeApiClient.sendMessage(
                 systemPrompt = examQuestionsPrompt,

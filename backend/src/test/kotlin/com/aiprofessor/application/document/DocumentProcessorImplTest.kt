@@ -579,4 +579,171 @@ class DocumentProcessorImplTest {
             assertEquals(testOutputFilePath, savedHistory.outputFilePath)
             assertNotNull(savedHistory.createdAt)
         }
+
+    @Test
+    fun `processSummary should include important parts in user prompt`() =
+        runBlocking {
+            // Given
+            val importantParts = listOf("개념 A에 대한 설명", "예시 B 포함", "그림 C 설명")
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                    importantParts = importantParts,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+
+            val capturedUserPrompt = slot<String>()
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Summary prompt",
+                    userPrompt = capture(capturedUserPrompt),
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            documentProcessor.processSummary(request)
+
+            // Then
+            val finalPrompt = capturedUserPrompt.captured
+            assertTrue(finalPrompt.contains(testUserPrompt))
+            assertTrue(finalPrompt.contains("중요: 다음 부분은 반드시 포함해주세요"))
+            assertTrue(finalPrompt.contains("1. 개념 A에 대한 설명"))
+            assertTrue(finalPrompt.contains("2. 예시 B 포함"))
+            assertTrue(finalPrompt.contains("3. 그림 C 설명"))
+        }
+
+    @Test
+    fun `processExamQuestions should include important parts in user prompt`() =
+        runBlocking {
+            // Given
+            val importantParts = listOf("핵심 개념 X", "공식 Y")
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                    importantParts = importantParts,
+                )
+
+            val examOutputFilePath = "datas/output/testuser_789-abc_exam_questions.pdf"
+            val examOutputUrl = "https://test.example.com/$examOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+
+            val capturedUserPrompt = slot<String>()
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Exam questions prompt",
+                    userPrompt = capture(capturedUserPrompt),
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "EXAM_QUESTIONS", testResultPdfBytes) } returns examOutputFilePath
+            every { fileStorageUtils.filePathToUrl(testInputFilePath) } returns "https://test.example.com/$testInputFilePath"
+            every { fileStorageUtils.filePathToUrl(examOutputFilePath) } returns examOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            documentProcessor.processExamQuestions(request)
+
+            // Then
+            val finalPrompt = capturedUserPrompt.captured
+            assertTrue(finalPrompt.contains(testUserPrompt))
+            assertTrue(finalPrompt.contains("중요: 다음 부분은 반드시 포함해주세요"))
+            assertTrue(finalPrompt.contains("1. 핵심 개념 X"))
+            assertTrue(finalPrompt.contains("2. 공식 Y"))
+        }
+
+    @Test
+    fun `processSummary should work without important parts`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                    importantParts = null,
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+
+            val capturedUserPrompt = slot<String>()
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Summary prompt",
+                    userPrompt = capture(capturedUserPrompt),
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processSummary(request)
+
+            // Then
+            assertEquals(testOutputUrl, response.resultPdfUrl)
+            val finalPrompt = capturedUserPrompt.captured
+            assertEquals(testUserPrompt, finalPrompt) // Should be just the user prompt without important parts
+        }
+
+    @Test
+    fun `processSummary should work with empty important parts list`() =
+        runBlocking {
+            // Given
+            val request =
+                DocumentRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    userPrompt = testUserPrompt,
+                    importantParts = emptyList(),
+                )
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+
+            val capturedUserPrompt = slot<String>()
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Summary prompt",
+                    userPrompt = capture(capturedUserPrompt),
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "SUMMARY", testResultPdfBytes) } returns testOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns testOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processSummary(request)
+
+            // Then
+            assertEquals(testOutputUrl, response.resultPdfUrl)
+            val finalPrompt = capturedUserPrompt.captured
+            assertEquals(testUserPrompt, finalPrompt) // Should be just the user prompt without important parts
+        }
 }

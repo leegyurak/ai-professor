@@ -45,7 +45,7 @@ claude:
   api:
     key: test-mock-api-key
     url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5
+    model: claude-haiku-4-5-20251001
     max-tokens: 64000
 
 session:
@@ -102,7 +102,7 @@ claude:
   api:
     key: ${CLAUDE_API_KEY:dev-mock-api-key}
     url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5
+    model: claude-haiku-4-5-20251001
     max-tokens: 64000
 
 session:
@@ -164,7 +164,7 @@ claude:
   api:
     key: ${CLAUDE_API_KEY}
     url: https://api.anthropic.com/v1/messages
-    model: claude-sonnet-4-5
+    model: claude-haiku-4-5-20251001
     max-tokens: 64000
 
 session:
