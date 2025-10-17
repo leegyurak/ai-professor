@@ -8,10 +8,10 @@ export default function Features() {
 
   const features = [
     {
-      title: '자료 요약',
+      title: '요약 & 문제 출제',
       emoji: '📝',
-      subtitle: '핵심만 쏙쏙',
-      description: 'PDF 파일을 올리면 중요한 내용만 골라서 깔끔하게 정리해드려요. 100페이지짜리 교재도 몇 분이면 요약 완료!',
+      subtitle: '한 번에 끝내는 학습',
+      description: 'PDF 파일을 올리면 핵심 내용을 정리하고 객관식, 주관식, 서술형 문제까지 자동으로 만들어드려요. 답과 풀이도 함께 제공됩니다. 100페이지짜리 교재도 몇 분이면 완료!',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -19,13 +19,13 @@ export default function Features() {
       ),
     },
     {
-      title: '문제 만들기',
-      emoji: '✏️',
-      subtitle: '시험 대비 완벽',
-      description: '공부한 내용으로 바로 문제를 만들어드려요. 객관식, 주관식, 서술형까지! 답과 풀이도 함께 제공됩니다.',
+      title: '중요 내용 하이라이팅',
+      emoji: '✨',
+      subtitle: '원하는 부분 집중 학습',
+      description: '이 내용은 꼭 나왔으면 좋겠다는 부분을 표시하면 AI가 알아듣고 그 부분을 중심으로 요약과 문제를 만들어드려요. 시험 출제 경향에 맞춰 공부하세요!',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
         </svg>
       ),
     },
@@ -43,7 +43,7 @@ export default function Features() {
   ];
 
   return (
-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 md:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <motion.div
@@ -51,12 +51,12 @@ export default function Features() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-12 md:mb-16 px-2 sm:px-4"
         >
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4">
             이런 기능이 있어요
           </h2>
-          <p className="text-xl opacity-70 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-2xl mx-auto">
             공부가 더 쉬워지는 세 가지 기능
           </p>
         </motion.div>
@@ -67,7 +67,7 @@ export default function Features() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex justify-center gap-3 mb-12"
+          className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-8 sm:mb-10 md:mb-12"
         >
           {features.map((feature, index) => (
             <motion.button
@@ -75,54 +75,49 @@ export default function Features() {
               onClick={() => setActiveTab(index)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-3 md:px-6 py-3 rounded-lg transition-all ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-lg transition-all text-sm sm:text-base ${
                 activeTab === index
                   ? 'bg-foreground text-background'
                   : 'bg-foreground/5 hover:bg-foreground/10'
               }`}
             >
-              {/* Mobile - Icon only */}
-              <div className="md:hidden">
-                {feature.icon}
+              {/* Mobile - Icon only (very small screens) */}
+              <div className="sm:hidden flex items-center justify-center">
+                <div className="scale-75">
+                  {feature.icon}
+                </div>
               </div>
 
-              {/* Desktop - Icon + Text */}
-              <div className="hidden md:flex items-center gap-2">
+              {/* Tablet and up - Icon + Text */}
+              <div className="hidden sm:flex items-center gap-2">
                 {feature.icon}
-                <span className="font-medium">{feature.title}</span>
+                <span className="font-medium whitespace-nowrap">{feature.title}</span>
               </div>
             </motion.button>
           ))}
         </motion.div>
 
         {/* Feature Content */}
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="grid md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 items-center">
           {/* Left side - Description */}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6 px-2 sm:px-4"
           >
             <div>
-              <h3 className="text-3xl font-bold mb-2">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">
                 {features[activeTab].title}
               </h3>
-              <p className="text-xl opacity-70 mb-4">
+              <p className="text-base sm:text-lg md:text-xl opacity-70 mb-3 sm:mb-4">
                 {features[activeTab].subtitle}
               </p>
             </div>
-            <p className="text-lg opacity-80 leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg opacity-80 leading-relaxed">
               {features[activeTab].description}
             </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-6 py-3 bg-foreground text-background rounded-lg hover:opacity-90 transition-opacity"
-            >
-              자세히 보기 →
-            </motion.button>
           </motion.div>
 
           {/* Right side - Demo/Visual */}
@@ -134,25 +129,26 @@ export default function Features() {
             className="relative"
           >
             <div className="rounded-xl overflow-hidden border border-foreground/10 bg-foreground/5 shadow-xl">
-              <div className="aspect-video flex items-center justify-center p-8">
-                <div className="text-center space-y-4">
-                  <motion.div
-                    animate={{
-                      y: [0, -10, 0],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      repeatType: "reverse"
-                    }}
-                    className="inline-block p-6 rounded-xl bg-foreground/10"
-                  >
-                    {features[activeTab].icon}
-                  </motion.div>
-                  <p className="text-sm opacity-50">
-                    {features[activeTab].title} 미리보기
-                  </p>
-                </div>
+              <div className="aspect-video flex items-center justify-center">
+                {activeTab === 0 ? (
+                  <img
+                    src="/summary.gif"
+                    alt="요약 및 문제 출제 데모"
+                    className="w-full h-full object-cover object-left"
+                  />
+                ) : activeTab === 1 ? (
+                  <img
+                    src="/hilighting.gif"
+                    alt="중요 내용 하이라이팅 데모"
+                    className="w-full h-full object-cover object-left"
+                  />
+                ) : (
+                  <img
+                    src="/history.png"
+                    alt="내역 보관 데모"
+                    className="w-full h-full object-cover object-left"
+                  />
+                )}
               </div>
             </div>
 
@@ -173,13 +169,13 @@ export default function Features() {
         </div>
 
         {/* Additional Features Grid */}
-        <div className="grid md:grid-cols-3 gap-8 mt-24">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mt-16 sm:mt-20 md:mt-24">
           {[
             {
               title: '안전한 보관',
               description: '여러분의 공부 자료와 개인정보를 안전하게 보관해요. 걱정 없이 사용하세요.',
               icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               ),
@@ -188,16 +184,16 @@ export default function Features() {
               title: '빠른 처리',
               description: '기다리는 시간은 짧게! 파일을 올리면 몇 분 안에 요약과 문제가 뚝딱 완성됩니다.',
               icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               ),
             },
             {
               title: '어디서나 사용',
-              description: 'Windows, Mac, Linux 모두 지원! 집에서도 학교에서도 어디서든 사용할 수 있어요.',
+              description: '노트북, 태블릿부터 휴대폰까지! 집에서도 학교에서도 어디서든 사용할 수 있어요.',
               icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               ),
@@ -210,17 +206,13 @@ export default function Features() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               whileHover={{ y: -5 }}
-              className="p-6 rounded-xl border border-foreground/10 bg-foreground/5 hover:bg-foreground/10 transition-colors"
+              className="p-4 sm:p-5 md:p-6 rounded-xl border border-foreground/10 bg-foreground/5 hover:bg-foreground/10 transition-colors"
             >
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="mb-4 text-blue-600 dark:text-blue-400"
-              >
+              <div className="mb-3 sm:mb-4 text-blue-600 dark:text-blue-400">
                 {item.icon}
-              </motion.div>
-              <h4 className="text-xl font-semibold mb-2">{item.title}</h4>
-              <p className="opacity-70">{item.description}</p>
+              </div>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold mb-1.5 sm:mb-2">{item.title}</h4>
+              <p className="text-xs sm:text-sm md:text-base opacity-70 leading-relaxed">{item.description}</p>
             </motion.div>
           ))}
         </div>
