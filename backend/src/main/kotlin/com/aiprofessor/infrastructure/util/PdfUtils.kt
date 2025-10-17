@@ -144,17 +144,20 @@ class PdfUtils(
                             background-color: #f6f8fa;
                             padding: 2px 4px;
                             border-radius: 3px;
-                            font-family: monospace;
+                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
+                            font-size: 0.9em;
                         }
                         pre {
                             background-color: #f6f8fa;
                             padding: 16px;
                             border-radius: 3px;
                             overflow-x: auto;
+                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
                         }
                         pre code {
                             background-color: transparent;
                             padding: 0;
+                            font-family: 'D2 Coding', 'Noto Sans KR', 'Courier New', monospace;
                         }
                         ul, ol {
                             margin-bottom: 16px;
@@ -195,20 +198,32 @@ class PdfUtils(
             val outputStream = ByteArrayOutputStream()
             val builder = PdfRendererBuilder()
 
-            // Load Noto Sans KR fonts from resources
+            // Load fonts from resources
             try {
                 val classLoader = this.javaClass.classLoader
 
-                // Load Regular font
+                // Load Noto Sans KR Regular font
                 val regularFontStream = classLoader.getResourceAsStream("fonts/NotoSansKR-Regular.ttf")
                 if (regularFontStream != null) {
                     builder.useFont({ regularFontStream }, "Noto Sans KR", 400, null, false)
                 }
 
-                // Load SemiBold font
+                // Load Noto Sans KR SemiBold font
                 val semiBoldFontStream = classLoader.getResourceAsStream("fonts/NotoSansKR-SemiBold.ttf")
                 if (semiBoldFontStream != null) {
                     builder.useFont({ semiBoldFontStream }, "Noto Sans KR", 600, null, false)
+                }
+
+                // Load D2 Coding Regular font
+                val d2CodingFontStream = classLoader.getResourceAsStream("fonts/D2Coding-Ver1.3.2-20180524.ttf")
+                if (d2CodingFontStream != null) {
+                    builder.useFont({ d2CodingFontStream }, "D2 Coding", 400, null, false)
+                }
+
+                // Load D2 Coding Bold font
+                val d2CodingBoldFontStream = classLoader.getResourceAsStream("fonts/D2CodingBold-Ver1.3.2-20180524.ttf")
+                if (d2CodingBoldFontStream != null) {
+                    builder.useFont({ d2CodingBoldFontStream }, "D2 Coding", 700, null, false)
                 }
             } catch (e: Exception) {
                 // If font loading fails, continue with default fonts
