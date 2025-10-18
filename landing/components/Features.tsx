@@ -146,7 +146,12 @@ export default function Features() {
                   <img
                     src="/history.png"
                     alt="내역 보관 데모"
-                    className="w-full h-full object-cover object-left"
+                    className="w-full h-full object-cover"
+                    style={{
+                      objectPosition: '0% 0%',
+                      transform: 'scale(2)',
+                      transformOrigin: 'top left'
+                    }}
                   />
                 )}
               </div>
