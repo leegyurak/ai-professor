@@ -15,10 +15,12 @@ COPY . .
 # Build arguments for environment variables
 ARG VITE_BACKEND_URL
 ARG VITE_APP_ELECTRON_TOKEN
+ARG VITE_OPENAI_API_KEY
 
 # Set environment variables for build
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 ENV VITE_APP_ELECTRON_TOKEN=$VITE_APP_ELECTRON_TOKEN
+ENV VITE_OPENAI_API_KEY=$VITE_OPENAI_API_KEY
 
 # Build the application
 RUN npm run build

@@ -12,6 +12,9 @@ on:
       vite_app_electron_token:
         description: 'Electron Token (VITE_APP_ELECTRON_TOKEN)'
         required: false
+      vite_openai_api_key:
+        description: 'OpenAI API Key (VITE_OPENAI_API_KEY)'
+        required: false
 
 env:
   REGISTRY: docker.io
@@ -54,9 +57,11 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "VITE_BACKEND_URL=${{ github.event.inputs.vite_backend_url }}" >> $GITHUB_ENV
             echo "VITE_APP_ELECTRON_TOKEN=${{ github.event.inputs.vite_app_electron_token }}" >> $GITHUB_ENV
+            echo "VITE_OPENAI_API_KEY=${{ github.event.inputs.vite_openai_api_key }}" >> $GITHUB_ENV
           else
             echo "VITE_BACKEND_URL=${{ secrets.VITE_BACKEND_URL }}" >> $GITHUB_ENV
             echo "VITE_APP_ELECTRON_TOKEN=${{ secrets.VITE_APP_ELECTRON_TOKEN }}" >> $GITHUB_ENV
+            echo "VITE_OPENAI_API_KEY=${{ secrets.VITE_OPENAI_API_KEY }}" >> $GITHUB_ENV
           fi
 
       - name: Build and push Docker image
@@ -70,6 +75,7 @@ jobs:
           build-args: |
             VITE_BACKEND_URL=${{ env.VITE_BACKEND_URL }}
             VITE_APP_ELECTRON_TOKEN=${{ env.VITE_APP_ELECTRON_TOKEN }}
+            VITE_OPENAI_API_KEY=${{ env.VITE_OPENAI_API_KEY }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
 
