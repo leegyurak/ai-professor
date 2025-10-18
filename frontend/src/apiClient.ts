@@ -147,7 +147,7 @@ export async function generate(params: GenerateParams, token?: string): Promise<
 // History API
 export interface HistoryItem {
   id: number;
-  processingType: 'SUMMARY' | 'EXAM_QUESTIONS';
+  processingType: 'SUMMARY' | 'EXAM_QUESTIONS' | 'CRAMMING';
   userPrompt: string;
   inputUrl: string;
   outputUrl: string;
@@ -166,7 +166,7 @@ export interface HistoryResponse {
 export interface HistoryParams {
   page?: number;
   size?: number;
-  processingType?: 'SUMMARY' | 'EXAM_QUESTIONS';
+  processingType?: 'SUMMARY' | 'EXAM_QUESTIONS' | 'CRAMMING';
 }
 
 export async function getHistory(params: HistoryParams, token: string): Promise<HistoryResponse> {
