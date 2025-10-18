@@ -36,4 +36,5 @@ class DocumentHistory(
 enum class ProcessingType {
     SUMMARY,
     EXAM_QUESTIONS,
+    CRAMMING,
 }

@@ -183,3 +183,25 @@ export async function getHistory(params: HistoryParams, token: string): Promise<
     authToken: token
   });
 }
+
+// Cramming API
+export interface CrammingParams {
+  pdfBase64: string;
+  hoursUntilExam: number;
+}
+
+export interface CrammingResult {
+  markdownContent: string;
+  resultPdfUrl: string;
+}
+
+export async function generateCramming(params: CrammingParams, token: string): Promise<CrammingResult> {
+  return http<CrammingResult>('/api/documents/cramming', {
+    method: 'POST',
+    body: JSON.stringify({
+      pdfBase64: params.pdfBase64,
+      hoursUntilExam: params.hoursUntilExam
+    }),
+    authToken: token
+  });
+}

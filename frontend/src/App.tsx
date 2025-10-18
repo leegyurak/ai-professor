@@ -4,6 +4,7 @@ import { generate, getHistory, login, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
+import { CrammingTab } from './components/CrammingTab';
 import { initTwemoji } from './utils/emojiUtils';
 
 function LoginScreen({ onDone }: { onDone: (username: string, token: string) => void }) {
@@ -161,7 +162,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [serverHistory, setServerHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'generate' | 'history'>('generate');
+  const [currentTab, setCurrentTab] = useState<'generate' | 'history' | 'cramming'>('generate');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [historyPage, setHistoryPage] = useState(0);
@@ -423,6 +424,24 @@ function MainScreen({ username, token }: { username: string; token: string }) {
             ✨ 생성하기
           </button>
           <button
+            onClick={() => setCurrentTab('cramming')}
+            style={{
+              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
+              border: 'none',
+              borderBottom: currentTab === 'cramming' ? '2px solid var(--text)' : '2px solid transparent',
+              background: 'transparent',
+              color: currentTab === 'cramming' ? 'var(--text)' : 'var(--muted)',
+              cursor: 'pointer',
+              fontSize: 'clamp(11px, 3vw, 12px)',
+              fontWeight: currentTab === 'cramming' ? 600 : 400,
+              transition: 'all 0.2s ease',
+              fontFamily: 'inherit',
+              flex: 1
+            }}
+          >
+            ⚡ 벼락치기
+          </button>
+          <button
             onClick={() => setCurrentTab('history')}
             style={{
               padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
@@ -446,7 +465,9 @@ function MainScreen({ username, token }: { username: string; token: string }) {
       {/* Main Content */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         <div style={{ maxWidth: '1600px', margin: '0 auto', padding: 'clamp(8px, 2.5vw, 12px)' }}>
-          {currentTab === 'generate' ? (
+          {currentTab === 'cramming' ? (
+            <CrammingTab token={token} username={username} isMobile={isMobile} />
+          ) : currentTab === 'generate' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 2.5vw, 12px)', width: '100%', margin: '0 auto' }}>
               {/* Combined Form */}
               <div className="card" style={{ padding: 'clamp(12px, 4vw, 16px)', display: 'flex', flexDirection: 'column' }}>

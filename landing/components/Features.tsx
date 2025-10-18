@@ -19,6 +19,17 @@ export default function Features() {
       ),
     },
     {
+      title: '벼락치기 모드',
+      emoji: '⚡',
+      subtitle: '시험 직전 핵심 정리',
+      description: '시험까지 남은 시간을 입력하면 AI가 핵심만 골라 압축 정리해드립니다. 학습 후 스피드 퀴즈로 바로 확인! 2문제 이상 틀리면 다시 학습하는 시스템으로 완벽하게 암기할 수 있어요.',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+    },
+    {
       title: '중요 내용 하이라이팅',
       emoji: '✨',
       subtitle: '원하는 부분 집중 학습',
@@ -57,7 +68,7 @@ export default function Features() {
             이런 기능이 있어요
           </h2>
           <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-3xl mx-auto leading-relaxed">
-            공부가 더 쉬워지는 세 가지 기능
+            공부가 더 쉬워지는 네 가지 기능
           </p>
         </motion.div>
 
@@ -137,6 +148,12 @@ export default function Features() {
                     className="w-full h-full object-cover object-left"
                   />
                 ) : activeTab === 1 ? (
+                  <img
+                    src="/cramming.gif"
+                    alt="벼락치기 모드 데모"
+                    className="w-full h-full object-cover object-left"
+                  />
+                ) : activeTab === 2 ? (
                   <img
                     src="/hilighting.gif"
                     alt="중요 내용 하이라이팅 데모"

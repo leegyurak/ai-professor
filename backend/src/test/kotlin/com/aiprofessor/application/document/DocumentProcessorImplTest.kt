@@ -1,5 +1,6 @@
 package com.aiprofessor.application.document
 
+import com.aiprofessor.domain.document.CrammingRequest
 import com.aiprofessor.domain.document.DocumentHistory
 import com.aiprofessor.domain.document.DocumentHistoryRepository
 import com.aiprofessor.domain.document.DocumentRequest
@@ -65,6 +66,7 @@ class DocumentProcessorImplTest {
 
         every { promptLoader.loadPrompt("summary.md") } returns "Summary prompt"
         every { promptLoader.loadPrompt("exam-questions.md") } returns "Exam questions prompt"
+        every { promptLoader.loadPrompt("cramming.md") } returns "Cramming prompt"
 
         documentProcessor =
             DocumentProcessorImpl(
@@ -745,5 +747,170 @@ class DocumentProcessorImplTest {
             assertEquals(testOutputUrl, response.resultPdfUrl)
             val finalPrompt = capturedUserPrompt.captured
             assertEquals(testUserPrompt, finalPrompt) // Should be just the user prompt without important parts
+        }
+
+    @Test
+    fun `processCramming should process PDF and return markdown content and PDF URL`() =
+        runBlocking {
+            // Given
+            val hoursUntilExam = 3
+            val request =
+                CrammingRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    hoursUntilExam = hoursUntilExam,
+                )
+
+            val crammingOutputFilePath = "datas/output/testuser_789-abc_cramming.pdf"
+            val crammingOutputUrl = "https://test.example.com/$crammingOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Cramming prompt",
+                    userPrompt = "시험까지 남은 시간: ${hoursUntilExam}시간",
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "CRAMMING", testResultPdfBytes) } returns crammingOutputFilePath
+            every { fileStorageUtils.filePathToUrl(testInputFilePath) } returns "https://test.example.com/$testInputFilePath"
+            every { fileStorageUtils.filePathToUrl(crammingOutputFilePath) } returns crammingOutputUrl
+
+            val historySlot = slot<DocumentHistory>()
+            every { documentHistoryRepository.save(capture(historySlot)) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processCramming(request)
+
+            // Then
+            assertEquals(testMarkdownResponse, response.markdownContent)
+            assertEquals(crammingOutputUrl, response.resultPdfUrl)
+
+            verify(exactly = 1) { userRepository.findById(testUserId) }
+            verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
+            verify(exactly = 1) { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) }
+            coVerify(exactly = 1) {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Cramming prompt",
+                    userPrompt = "시험까지 남은 시간: ${hoursUntilExam}시간",
+                    extractedText = testExtractedText,
+                )
+            }
+            verify(exactly = 1) { pdfUtils.markdownToPdf(testMarkdownResponse) }
+            verify(exactly = 1) { fileStorageUtils.saveOutputPdf(testUsername, "CRAMMING", testResultPdfBytes) }
+            verify(exactly = 1) { fileStorageUtils.filePathToUrl(crammingOutputFilePath) }
+            verify(exactly = 1) { documentHistoryRepository.save(any()) }
+
+            // Verify saved history
+            val savedHistory = historySlot.captured
+            assertEquals(testUserId, savedHistory.userId)
+            assertEquals(ProcessingType.CRAMMING, savedHistory.processingType)
+            assertEquals("시험까지 남은 시간: ${hoursUntilExam}시간", savedHistory.userPrompt)
+            assertEquals(testInputFilePath, savedHistory.inputFilePath)
+            assertEquals(crammingOutputFilePath, savedHistory.outputFilePath)
+            assertNotNull(savedHistory.createdAt)
+        }
+
+    @Test
+    fun `processCramming should include hours until exam in user prompt`() =
+        runBlocking {
+            // Given
+            val hoursUntilExam = 5
+            val request =
+                CrammingRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    hoursUntilExam = hoursUntilExam,
+                )
+
+            val crammingOutputFilePath = "datas/output/testuser_789-abc_cramming.pdf"
+            val crammingOutputUrl = "https://test.example.com/$crammingOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+
+            val capturedUserPrompt = slot<String>()
+            coEvery {
+                claudeApiClient.sendMessage(
+                    systemPrompt = "Cramming prompt",
+                    userPrompt = capture(capturedUserPrompt),
+                    extractedText = testExtractedText,
+                )
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "CRAMMING", testResultPdfBytes) } returns crammingOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns crammingOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            documentProcessor.processCramming(request)
+
+            // Then
+            val finalPrompt = capturedUserPrompt.captured
+            assertEquals("시험까지 남은 시간: ${hoursUntilExam}시간", finalPrompt)
+            assertTrue(finalPrompt.contains("5시간"))
+        }
+
+    @Test
+    fun `processCramming should throw exception when user not found`() =
+        runBlocking {
+            // Given
+            val request =
+                CrammingRequest(
+                    userId = testUserId,
+                    pdfBase64 = testPdfBase64,
+                    hoursUntilExam = 3,
+                )
+
+            every { userRepository.findById(testUserId) } returns null
+
+            // When & Then
+            val exception =
+                org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+                    runBlocking { documentProcessor.processCramming(request) }
+                }
+            assertTrue(exception.message!!.contains("User not found"))
+        }
+
+    @Test
+    fun `processCramming should clean base64 string with data URL prefix`() =
+        runBlocking {
+            // Given
+            val base64WithPrefix = "data:application/pdf;base64,$testPdfBase64"
+            val request =
+                CrammingRequest(
+                    userId = testUserId,
+                    pdfBase64 = base64WithPrefix,
+                    hoursUntilExam = 2,
+                )
+
+            val crammingOutputFilePath = "datas/output/testuser_789-abc_cramming.pdf"
+            val crammingOutputUrl = "https://test.example.com/$crammingOutputFilePath"
+
+            every { userRepository.findById(testUserId) } returns testUser
+            every { pdfUtils.base64ToPdfBytes(testPdfBase64) } returns testPdfBytes
+            every { fileStorageUtils.saveInputPdf(testUsername, testPdfBytes) } returns testInputFilePath
+            every { pdfUtils.extractTextFromPdf(testPdfBytes) } returns testExtractedText
+            coEvery {
+                claudeApiClient.sendMessage(any(), any(), any())
+            } returns testMarkdownResponse
+            every { pdfUtils.markdownToPdf(testMarkdownResponse) } returns testResultPdfBytes
+            every { fileStorageUtils.saveOutputPdf(testUsername, "CRAMMING", testResultPdfBytes) } returns crammingOutputFilePath
+            every { fileStorageUtils.filePathToUrl(any()) } returns crammingOutputUrl
+            every { documentHistoryRepository.save(any()) } answers { firstArg() }
+
+            // When
+            val response = documentProcessor.processCramming(request)
+
+            // Then
+            assertEquals(crammingOutputUrl, response.resultPdfUrl)
+            assertEquals(testMarkdownResponse, response.markdownContent)
+            verify(exactly = 1) { pdfUtils.base64ToPdfBytes(testPdfBase64) }
         }
 }

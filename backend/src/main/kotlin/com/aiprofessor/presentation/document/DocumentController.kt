@@ -1,5 +1,6 @@
 package com.aiprofessor.presentation.document
 
+import com.aiprofessor.domain.document.CrammingRequest
 import com.aiprofessor.domain.document.DocumentHistoryService
 import com.aiprofessor.domain.document.DocumentProcessor
 import com.aiprofessor.domain.document.DocumentRequest
@@ -8,6 +9,7 @@ import com.aiprofessor.domain.exception.UnauthorizedException
 import com.aiprofessor.infrastructure.util.FileStorageUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
 import kotlinx.coroutines.runBlocking
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -97,6 +99,30 @@ class DocumentController(
         return ResponseEntity.ok(response)
     }
 
+    @PostMapping("/cramming")
+    fun generateCramming(
+        @Valid @RequestBody request: CrammingRequestDto,
+    ): ResponseEntity<CrammingResponseDto> =
+        runBlocking {
+            val userId = getCurrentUserId()
+
+            val domainRequest =
+                CrammingRequest(
+                    userId = userId,
+                    pdfBase64 = request.pdfBase64,
+                    hoursUntilExam = request.hoursUntilExam,
+                )
+
+            val response = documentProcessor.processCramming(domainRequest)
+
+            ResponseEntity.ok(
+                CrammingResponseDto(
+                    markdownContent = response.markdownContent,
+                    resultPdfUrl = response.resultPdfUrl,
+                ),
+            )
+        }
+
     private fun getCurrentUserId(): Long {
         val authentication =
             SecurityContextHolder.getContext().authentication
@@ -114,5 +140,17 @@ data class DocumentRequestDto(
 )
 
 data class DocumentResponseDto(
+    val resultPdfUrl: String,
+)
+
+data class CrammingRequestDto(
+    @field:NotBlank(message = "PDF base64 is required")
+    val pdfBase64: String,
+    @field:Positive(message = "시험까지 남은 시간은 양수여야 합니다")
+    val hoursUntilExam: Int,
+)
+
+data class CrammingResponseDto(
+    val markdownContent: String,
     val resultPdfUrl: String,
 )
