@@ -677,7 +677,6 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                   const globalIdx = textItems.indexOf(item);
                   const isInCurrentSelection = currentSelection.has(globalIdx);
                   const isInSavedArea = selectionAreas.some(area => area.has(globalIdx));
-                  const isSelected = isInCurrentSelection || isInSavedArea;
 
                   // Use the stored canvas dimensions for accurate positioning
                   const leftPercent = (item.x / item.canvasWidth) * 100;
