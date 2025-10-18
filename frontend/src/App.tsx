@@ -675,7 +675,7 @@ function MainScreen({ username, token }: { username: string; token: string }) {
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 1.5vw, 6px)', minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1.5vw, 6px)', flexWrap: 'wrap' }}>
                             <span className="chip" style={{ fontSize: 'clamp(9px, 2.5vw, 10px)', flexShrink: 0 }}>
-                              {it.processingType === 'SUMMARY' ? '📝 요약' : '📋 문제'}
+                              {it.processingType === 'SUMMARY' ? '📝 요약' : it.processingType === 'CRAMMING' ? '⚡ 벼락치기' : '📋 문제'}
                             </span>
                             <div className="small" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: 'var(--muted)', flexShrink: 0 }}>
                               {new Date(it.createdAt).toLocaleDateString()}
