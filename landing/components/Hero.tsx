@@ -43,8 +43,8 @@ export default function Hero() {
             공부 자료를{' '}
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               요약하고
-            </span>{' '}
-            <br className="sm:hidden" />
+            </span>
+            <br className="hidden lg:inline" />{' '}
             문제를 만들어드려요
           </motion.h1>
 
@@ -55,9 +55,7 @@ export default function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-base sm:text-lg md:text-xl lg:text-2xl opacity-70 mb-8 sm:mb-10 md:mb-12 max-w-3xl mx-auto text-balance px-2 sm:px-4"
           >
-            PDF 파일만 올리면 핵심 내용 정리와{' '}
-            <br className="sm:hidden" />
-            예상 문제를 자동으로 만들어드립니다
+            PDF 파일만 올리면 핵심 내용 정리와 예상 문제를 자동으로 만들어드립니다
           </motion.p>
 
           {/* CTA Buttons */}

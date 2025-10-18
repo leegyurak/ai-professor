@@ -19,22 +19,43 @@ export default function Testimonials() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // 실제 API 호출 시뮬레이션
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitStatus('success');
-      setFormData({
-        name: '',
-        email: '',
-        organization: '',
-        purpose: '',
-        message: ''
+    try {
+      const response = await fetch('/api/send-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
 
+      if (response.ok) {
+        setSubmitStatus('success');
+        setFormData({
+          name: '',
+          email: '',
+          organization: '',
+          purpose: '',
+          message: ''
+        });
+
+        setTimeout(() => {
+          setSubmitStatus('idle');
+        }, 3000);
+      } else {
+        setSubmitStatus('error');
+        setTimeout(() => {
+          setSubmitStatus('idle');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      setSubmitStatus('error');
       setTimeout(() => {
         setSubmitStatus('idle');
       }, 3000);
-    }, 1500);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -58,7 +79,7 @@ export default function Testimonials() {
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4">
             지금 신청하기
           </h2>
-          <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-3xl mx-auto leading-relaxed">
             정보를 입력하시면 빠르게 연락드리겠습니다
           </p>
         </motion.div>
@@ -172,7 +193,7 @@ export default function Testimonials() {
               >
                 개인정보처리방침
               </a>
-              에<br className="sm:hidden" /> 동의하는 것으로 간주합니다.
+              에 동의하는 것으로 간주합니다.
             </p>
 
             {/* Submit Button */}
@@ -200,6 +221,17 @@ export default function Testimonials() {
                 신청이 완료되었습니다! 빠른 시일 내에 연락드리겠습니다.
               </motion.div>
             )}
+
+            {/* Error Message */}
+            {submitStatus === 'error' && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-center text-sm sm:text-base"
+              >
+                전송에 실패했습니다. 잠시 후 다시 시도해주세요.
+              </motion.div>
+            )}
           </form>
         </motion.div>
 
@@ -211,10 +243,10 @@ export default function Testimonials() {
           transition={{ duration: 0.8 }}
           className="mt-10 sm:mt-12 md:mt-16 text-center px-2 sm:px-4"
         >
-          <p className="text-xs sm:text-sm md:text-base opacity-60 mb-3 sm:mb-4">
+          <p className="text-xs sm:text-sm md:text-base opacity-60 mb-3 sm:mb-4 leading-relaxed">
             신청하시면 1-2일 내로 담당자가 연락드립니다
           </p>
-          <p className="text-xs opacity-50">
+          <p className="text-xs opacity-50 leading-relaxed">
             개인정보는 서비스 안내 목적으로만 사용되며 철저히 보호됩니다
           </p>
         </motion.div>

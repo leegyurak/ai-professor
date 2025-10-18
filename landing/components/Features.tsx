@@ -11,7 +11,7 @@ export default function Features() {
       title: '요약 & 문제 출제',
       emoji: '📝',
       subtitle: '한 번에 끝내는 학습',
-      description: 'PDF 파일을 올리면 핵심 내용을 정리하고 객관식, 주관식, 서술형 문제까지 자동으로 만들어드려요. 답과 풀이도 함께 제공됩니다. 100페이지짜리 교재도 몇 분이면 완료!',
+      description: 'PDF 파일을 올리면 핵심 내용을 정리하고 객관식, 주관식, 서술형 문제까지 자동으로 만들어드려요. 답과 풀이도 함께 제공됩니다. 여러 자료도 최대 15분이면 완료됩니다!',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -22,7 +22,7 @@ export default function Features() {
       title: '중요 내용 하이라이팅',
       emoji: '✨',
       subtitle: '원하는 부분 집중 학습',
-      description: '이 내용은 꼭 나왔으면 좋겠다는 부분을 표시하면 AI가 알아듣고 그 부분을 중심으로 요약과 문제를 만들어드려요. 시험 출제 경향에 맞춰 공부하세요!',
+      description: '중요하게 다루고 싶은 부분을 표시하면 AI가 해당 내용을 중심으로 요약과 문제를 만들어드립니다. 시험 출제 경향에 맞춰 효율적으로 공부하세요!',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -33,7 +33,7 @@ export default function Features() {
       title: '내역 보관',
       emoji: '📚',
       subtitle: '언제든 다시 보기',
-      description: '만들었던 요약과 문제를 모두 저장해드려요. 나중에 다시 보거나 다운로드할 수 있어 복습하기 편해요.',
+      description: '만들었던 요약과 문제를 모두 저장해드립니다. 언제든 다시 확인하거나 다운로드할 수 있어 복습하기 유용합니다.',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -56,7 +56,7 @@ export default function Features() {
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4">
             이런 기능이 있어요
           </h2>
-          <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl opacity-70 max-w-3xl mx-auto leading-relaxed">
             공부가 더 쉬워지는 세 가지 기능
           </p>
         </motion.div>
@@ -149,7 +149,7 @@ export default function Features() {
                     className="w-full h-full object-cover"
                     style={{
                       objectPosition: '0% 0%',
-                      transform: 'scale(2)',
+                      transform: 'scale(2.5)',
                       transformOrigin: 'top left'
                     }}
                   />
@@ -178,7 +178,7 @@ export default function Features() {
           {[
             {
               title: '안전한 보관',
-              description: '여러분의 공부 자료와 개인정보를 안전하게 보관해요. 걱정 없이 사용하세요.',
+              description: '여러분의 공부 자료와 개인정보를 안전하게 보관합니다. 걱정 없이 사용하세요.',
               icon: (
                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -187,7 +187,7 @@ export default function Features() {
             },
             {
               title: '빠른 처리',
-              description: '기다리는 시간은 짧게! 파일을 올리면 몇 분 안에 요약과 문제가 뚝딱 완성됩니다.',
+              description: '기다리는 시간은 짧게! 여러개의 파일도 15분 안에 요약과 문제가 완성됩니다.',
               icon: (
                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -196,7 +196,7 @@ export default function Features() {
             },
             {
               title: '어디서나 사용',
-              description: '노트북, 태블릿부터 휴대폰까지! 집에서도 학교에서도 어디서든 사용할 수 있어요.',
+              description: '노트북, 태블릿부터 휴대폰까지! 집에서도 학교에서도 어디서든 사용 가능합니다.',
               icon: (
                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

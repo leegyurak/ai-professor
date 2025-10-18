@@ -12,6 +12,10 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Build argument for Discord webhook URL
+ARG DISCORD_WEBHOOK_URL
+ENV DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
+
 # Build Next.js app
 RUN npm run build
 
@@ -22,6 +26,10 @@ WORKDIR /app
 
 # Set environment to production
 ENV NODE_ENV=production
+
+# Build argument for Discord webhook URL (runtime)
+ARG DISCORD_WEBHOOK_URL
+ENV DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
