@@ -419,32 +419,58 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     if (isSelecting && selectionStart !== null) {
       setHasDragged(true); // Mark that dragging occurred
 
+      const startItem = textItems[selectionStart];
+      const endItem = textItems[index];
+
       // Get all items in the range
       const itemsInRange = textItems
         .map((item, idx) => ({ item, idx }))
         .filter(({ idx }) => {
-          const startItem = textItems[selectionStart];
-          const endItem = textItems[index];
           const currentItem = textItems[idx];
 
           // Same page selection
           if (startItem.pageIndex === endItem.pageIndex) {
             if (currentItem.pageIndex !== startItem.pageIndex) return false;
 
-            // Select items between start and end positions
+            // Create a bounding box from start to end
             const minY = Math.min(startItem.y, endItem.y);
-            const maxY = Math.max(startItem.y, endItem.y) + Math.max(startItem.height, endItem.height);
+            const maxY = Math.max(startItem.y + startItem.height, endItem.y + endItem.height);
             const minX = Math.min(startItem.x, endItem.x);
-            const maxX = Math.max(startItem.x, endItem.x) + Math.max(startItem.width, endItem.width);
+            const maxX = Math.max(startItem.x + startItem.width, endItem.x + endItem.width);
 
-            return currentItem.y >= minY - currentItem.height &&
-                   currentItem.y <= maxY &&
-                   currentItem.x >= minX - 10 &&
-                   currentItem.x <= maxX + 10;
+            // Check if current item overlaps with the bounding box
+            const itemBottom = currentItem.y + currentItem.height;
+            const itemRight = currentItem.x + currentItem.width;
+
+            // Item overlaps if it's not completely outside the box
+            const overlapsY = currentItem.y <= maxY && itemBottom >= minY;
+            const overlapsX = currentItem.x <= maxX + 10 && itemRight >= minX - 10;
+
+            return overlapsY && overlapsX;
           } else {
-            // Multi-page selection
-            if (currentItem.pageIndex < Math.min(startItem.pageIndex, endItem.pageIndex)) return false;
-            if (currentItem.pageIndex > Math.max(startItem.pageIndex, endItem.pageIndex)) return false;
+            // Multi-page selection: include all items between start and end pages
+            const minPage = Math.min(startItem.pageIndex, endItem.pageIndex);
+            const maxPage = Math.max(startItem.pageIndex, endItem.pageIndex);
+
+            if (currentItem.pageIndex < minPage || currentItem.pageIndex > maxPage) {
+              return false;
+            }
+
+            // On start page, select from start position to end of page
+            if (currentItem.pageIndex === startItem.pageIndex && startItem.pageIndex !== endItem.pageIndex) {
+              const isAfterStart = currentItem.y >= startItem.y ||
+                (Math.abs(currentItem.y - startItem.y) < 10 && currentItem.x >= startItem.x);
+              return isAfterStart;
+            }
+
+            // On end page, select from start of page to end position
+            if (currentItem.pageIndex === endItem.pageIndex && startItem.pageIndex !== endItem.pageIndex) {
+              const isBeforeEnd = currentItem.y <= endItem.y + endItem.height ||
+                (Math.abs(currentItem.y - endItem.y) < 10 && currentItem.x <= endItem.x + endItem.width);
+              return isBeforeEnd;
+            }
+
+            // On middle pages, select everything
             return true;
           }
         })
@@ -517,6 +543,25 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
         handleMove(idx);
       }
     }
+
+    // Auto-scroll when dragging near edges
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const threshold = 50; // pixels from edge to trigger scroll
+      const scrollSpeed = 10;
+
+      if (touch.clientY - rect.top < threshold) {
+        // Near top
+        container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+      } else if (rect.bottom - touch.clientY < threshold) {
+        // Near bottom
+        container.scrollTop = Math.min(
+          container.scrollHeight - container.clientHeight,
+          container.scrollTop + scrollSpeed
+        );
+      }
+    }
   };
 
   return (
@@ -573,9 +618,30 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
           border: '1px solid var(--border)',
           borderRadius: 4,
           background: '#f5f5f5',
+          cursor: isSelecting ? 'text' : 'default',
         }}
         onMouseUp={handleEnd}
         onMouseLeave={() => setIsSelecting(false)}
+        onMouseMove={(e) => {
+          // Auto-scroll when dragging near edges with mouse
+          if (!isSelecting) return;
+
+          const container = containerRef.current;
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const threshold = 50;
+            const scrollSpeed = 10;
+
+            if (e.clientY - rect.top < threshold) {
+              container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+            } else if (rect.bottom - e.clientY < threshold) {
+              container.scrollTop = Math.min(
+                container.scrollHeight - container.clientHeight,
+                container.scrollTop + scrollSpeed
+              );
+            }
+          }
+        }}
         onTouchEnd={handleEnd}
         onTouchMove={handleContainerTouchMove}
         onTouchCancel={() => setIsSelecting(false)}
@@ -609,7 +675,9 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                 .filter(item => item.pageIndex === i)
                 .map((item, idx) => {
                   const globalIdx = textItems.indexOf(item);
-                  const isSelected = selectedIndices.has(globalIdx);
+                  const isInCurrentSelection = currentSelection.has(globalIdx);
+                  const isInSavedArea = selectionAreas.some(area => area.has(globalIdx));
+                  const isSelected = isInCurrentSelection || isInSavedArea;
 
                   // Use the stored canvas dimensions for accurate positioning
                   const leftPercent = (item.x / item.canvasWidth) * 100;
@@ -626,6 +694,14 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                     handleStart(globalIdx);
                   };
 
+                  // Different colors for current selection vs saved areas
+                  let backgroundColor = 'transparent';
+                  if (isInCurrentSelection && isSelecting) {
+                    backgroundColor = 'rgba(33, 150, 243, 0.3)'; // Blue for active selection
+                  } else if (isInSavedArea) {
+                    backgroundColor = 'rgba(255, 235, 59, 0.4)'; // Yellow for saved areas
+                  }
+
                   return (
                     <div
                       key={idx}
@@ -640,8 +716,8 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                         width: `${widthPercent}%`,
                         height: `${heightPercent}%`,
                         cursor: isPageProcessingOCR ? 'wait' : 'text',
-                        background: isSelected ? 'rgba(255, 235, 59, 0.4)' : 'transparent',
-                        transition: 'background 0.1s',
+                        background: backgroundColor,
+                        transition: isSelecting ? 'background 0.05s ease-out' : 'background 0.15s ease-out',
                         pointerEvents: 'auto',
                         touchAction: 'none',
                         WebkitUserSelect: 'none',
