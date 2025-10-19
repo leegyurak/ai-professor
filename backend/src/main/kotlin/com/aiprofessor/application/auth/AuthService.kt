@@ -2,8 +2,11 @@ package com.aiprofessor.application.auth
 
 import com.aiprofessor.domain.exception.InvalidCredentialsException
 import com.aiprofessor.domain.exception.MaxSessionsExceededException
+import com.aiprofessor.domain.exception.UserNotActiveException
+import com.aiprofessor.domain.exception.UserNotFoundException
 import com.aiprofessor.domain.session.SessionRepository
 import com.aiprofessor.domain.session.UserSession
+import com.aiprofessor.domain.user.User
 import com.aiprofessor.domain.user.UserRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -29,6 +32,10 @@ class AuthService(
 
         if (!passwordEncoder.matches(password, user.password)) {
             throw InvalidCredentialsException()
+        }
+
+        if (!user.isActive) {
+            throw UserNotActiveException()
         }
 
         // Check concurrent sessions
@@ -67,10 +74,81 @@ class AuthService(
     fun validateToken(token: String): Boolean = jwtService.validateToken(token) && sessionRepository.findByToken(token) != null
 
     fun getUserIdFromToken(token: String): Long? = jwtService.getUserIdFromToken(token)
+
+    fun register(
+        username: String,
+        password: String,
+        email: String,
+    ): RegisterResponse {
+        // Check if username already exists
+        if (userRepository.existsByUsername(username)) {
+            throw IllegalArgumentException("Username already exists")
+        }
+
+        // Encode password
+        val encodedPassword = passwordEncoder.encode(password)
+
+        // Create user with isActive = false
+        val user =
+            User(
+                username = username,
+                password = encodedPassword,
+                email = email,
+                isActive = false,
+            )
+
+        val savedUser = userRepository.save(user)
+
+        return RegisterResponse(
+            userId = savedUser.id!!,
+            username = savedUser.username,
+            email = savedUser.email,
+        )
+    }
+
+    fun getUserInfo(userId: Long): UserInfoResponse {
+        val user = userRepository.findById(userId) ?: throw UserNotFoundException()
+
+        return UserInfoResponse(
+            userId = user.id!!,
+            username = user.username,
+            email = user.email,
+            isActive = user.isActive,
+            createdAt = user.createdAt,
+            updatedAt = user.updatedAt,
+        )
+    }
+
+    fun deleteUser(userId: Long) {
+        val user = userRepository.findById(userId) ?: throw UserNotFoundException()
+
+        // Delete all active sessions for this user
+        sessionRepository.findByUserId(userId).forEach { session ->
+            sessionRepository.deleteByToken(session.token)
+        }
+
+        // Hard delete: remove user from database
+        userRepository.delete(user)
+    }
 }
 
 data class LoginResponse(
     val token: String,
     val userId: Long,
     val username: String,
+)
+
+data class RegisterResponse(
+    val userId: Long,
+    val username: String,
+    val email: String,
+)
+
+data class UserInfoResponse(
+    val userId: Long,
+    val username: String,
+    val email: String,
+    val isActive: Boolean,
+    val createdAt: java.time.LocalDateTime,
+    val updatedAt: java.time.LocalDateTime,
 )

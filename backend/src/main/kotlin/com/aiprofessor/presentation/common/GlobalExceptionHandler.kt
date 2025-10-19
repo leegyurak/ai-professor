@@ -18,6 +18,7 @@ import com.aiprofessor.domain.exception.PdfProcessingException
 import com.aiprofessor.domain.exception.PdfSizeExceededException
 import com.aiprofessor.domain.exception.SessionNotFoundException
 import com.aiprofessor.domain.exception.UnauthorizedException
+import com.aiprofessor.domain.exception.UserNotActiveException
 import com.aiprofessor.domain.exception.UserNotFoundException
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
@@ -169,6 +170,24 @@ class GlobalExceptionHandler {
                     status = HttpStatus.CONFLICT.value(),
                     error = "Conflict",
                     message = ex.message ?: "Username already exists",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    @ExceptionHandler(UserNotActiveException::class)
+    fun handleUserNotActive(
+        ex: UserNotActiveException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("User not active: {}", ex.message)
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.FORBIDDEN.value(),
+                    error = "Forbidden",
+                    message = ex.message ?: "User is not active",
                     path = request.requestURI,
                 ),
             )

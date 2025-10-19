@@ -43,7 +43,7 @@ export default function Footer() {
 
           {/* Legal Links */}
           <div className="text-xs sm:text-sm opacity-60">
-            <a href="/privacy" className="hover:opacity-100 transition-opacity">
+            <a href="https://ai-professor.me/privacy" className="hover:opacity-100 transition-opacity">
               개인정보처리방침
             </a>
           </div>

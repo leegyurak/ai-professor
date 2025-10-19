@@ -59,7 +59,19 @@ async function http<T>(path: string, init: RequestInit & { authToken?: string } 
       error.details = errorDetails;
       throw error;
     }
-    return (await res.json()) as T;
+
+    // Handle 204 No Content or empty responses
+    if (res.status === 204 || res.headers.get('content-length') === '0') {
+      return undefined as T;
+    }
+
+    // Check if response has content before parsing JSON
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return (await res.json()) as T;
+    }
+
+    return undefined as T;
   } catch (error: any) {
     if (error.name === 'AbortError') {
       const timeoutError = new Error('요청 시간이 초과되었습니다. 다시 시도해주세요.') as Error & { status: number };
@@ -103,6 +115,52 @@ export async function logout(token: string): Promise<void> {
   await http<void>('/api/auth/logout', {
     method: 'POST',
     authToken: token
+  });
+}
+
+// User Info API
+export interface UserInfoResponse {
+  userId: number;
+  username: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export async function getUserInfo(token: string): Promise<UserInfoResponse> {
+  return http<UserInfoResponse>('/api/auth/me', {
+    method: 'GET',
+    authToken: token
+  });
+}
+
+// Delete Account API
+export async function deleteAccount(token: string): Promise<void> {
+  await http<void>('/api/auth/me', {
+    method: 'DELETE',
+    authToken: token
+  });
+}
+
+// Register API
+export interface RegisterParams {
+  username: string;
+  password: string;
+  email: string;
+}
+export interface RegisterResult {
+  userId: number;
+  username: string;
+  email: string;
+}
+export async function register(params: RegisterParams): Promise<RegisterResult> {
+  return http<RegisterResult>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: params.username,
+      password: params.password,
+      email: params.email
+    })
   });
 }
 

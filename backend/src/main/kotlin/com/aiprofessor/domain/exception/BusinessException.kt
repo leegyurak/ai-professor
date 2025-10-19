@@ -49,6 +49,10 @@ class DuplicateUsernameException(
     username: String,
 ) : BusinessException("이미 사용 중인 아이디입니다: $username")
 
+class UserNotActiveException(
+    message: String = "아직 승인 전이에요!",
+) : BusinessException(message)
+
 /**
  * Document Processing Exceptions
  */
