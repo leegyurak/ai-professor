@@ -79,13 +79,53 @@ export async function gradeQuiz(
   userAnswers: Record<number, string>,
   apiKey: string
 ): Promise<GradeResponse> {
-  const questionsWithAnswers = quiz.map((q, idx) => ({
-    questionIndex: idx,
-    question: q.question,
-    type: q.type,
-    correctAnswer: q.correctAnswer,
-    userAnswer: userAnswers[idx] || ''
-  }));
+  // 객관식은 코드에서 직접 채점 (정확한 문자열 일치)
+  const multipleChoiceResults: GradeResult[] = [];
+  const shortAnswerQuestions: any[] = [];
+  let wrongCount = 0;
+
+  quiz.forEach((q, idx) => {
+    const userAnswer = userAnswers[idx] || '';
+
+    if (q.type === 'multiple_choice') {
+      // 객관식: 정확한 문자열 일치로 채점
+      const isCorrect = userAnswer === q.correctAnswer;
+      if (!isCorrect) wrongCount++;
+
+      multipleChoiceResults.push({
+        questionIndex: idx,
+        isCorrect,
+        userAnswer,
+        correctAnswer: q.correctAnswer,
+        explanation: '' // GPT가 채울 예정
+      });
+    } else {
+      // 주관식: GPT에게 채점 요청
+      shortAnswerQuestions.push({
+        questionIndex: idx,
+        question: q.question,
+        type: q.type,
+        correctAnswer: q.correctAnswer,
+        userAnswer
+      });
+    }
+  });
+
+  // GPT에게 해설 생성 및 주관식 채점 요청
+  const questionsForGPT = [
+    ...multipleChoiceResults.map((r) => {
+      const q = quiz[r.questionIndex];
+      return {
+        questionIndex: r.questionIndex,
+        question: q.question,
+        type: 'multiple_choice',
+        correctAnswer: r.correctAnswer,
+        userAnswer: r.userAnswer,
+        isCorrect: r.isCorrect // 이미 채점된 결과
+      };
+    }),
+    ...shortAnswerQuestions
+  ];
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -102,7 +142,7 @@ export async function gradeQuiz(
         },
         {
           role: 'user',
-          content: `다음 퀴즈 답안을 채점해주세요. 각 문제에 대해 사용자의 답변이 정답과 일치하는지 판단해주세요. 주관식의 경우 의미가 같으면 정답으로 인정해주세요.\n\n${JSON.stringify(questionsWithAnswers, null, 2)}\n\n각 문제별로 정답 여부를 판단하고, 각 문제에 대한 간단한 해설(정답인 이유 또는 오답인 이유)을 포함해주세요. 전체 오답 개수도 세어주세요.`
+          content: `다음 퀴즈 답안에 대해 해설을 작성해주세요.\n\n채점 기준:\n1. 객관식(type: "multiple_choice") 문제: isCorrect 값이 이미 제공되어 있습니다. 이 값을 그대로 사용하고 해설만 작성해주세요.\n2. 주관식(type: "short_answer") 문제: 의미가 같으면 정답으로 인정하고 isCorrect를 판단해주세요.\n\n${JSON.stringify(questionsForGPT, null, 2)}\n\n각 문제에 대한 간단한 해설(정답인 이유 또는 오답인 이유)을 포함해주세요. 주관식 문제의 오답도 세어서 전체 오답 개수를 계산해주세요.`
         }
       ],
       temperature: 0.3,
@@ -119,5 +159,11 @@ export async function gradeQuiz(
   const content = data.choices[0].message.content;
   const gradeData = JSON.parse(content);
 
-  return gradeData as GradeResponse;
+  // 주관식의 오답 개수를 추가
+  const totalWrongCount = wrongCount + (gradeData.wrongCount || 0);
+
+  return {
+    results: gradeData.results,
+    wrongCount: totalWrongCount
+  } as GradeResponse;
 }
