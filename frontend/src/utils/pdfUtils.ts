@@ -74,7 +74,7 @@ export function downloadBase64Pdf(fileName: string, base64: string): void {
 /**
  * Open PDF from URL in new tab
  */
-export async function downloadPdfFromUrl(fileName: string, url: string): Promise<void> {
+export async function downloadPdfFromUrl(_fileName: string, url: string): Promise<void> {
   try {
     // Open PDF in new tab instead of downloading
     window.open(url, '_blank', 'noopener,noreferrer');
