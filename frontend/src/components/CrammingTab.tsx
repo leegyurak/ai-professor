@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { generateCramming } from '../apiClient';
 import { generateSpeedQuiz, gradeQuiz } from '../utils/chatgptClient';
-import type { QuizQuestion } from '../utils/chatgptClient';
+import type { QuizQuestion, GradeResult } from '../utils/chatgptClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from '../utils/pdfUtils';
 import { Confetti } from './Confetti';
 import { MAX_PDF_SIZE } from '@/shared/config';
@@ -53,6 +53,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [wrongCount, setWrongCount] = useState(0);
+  const [gradeResults, setGradeResults] = useState<GradeResult[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
@@ -161,22 +162,9 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
       const wrong = gradeResult.wrongCount;
 
       setWrongCount(wrong);
+      setGradeResults(gradeResult.results);
       setQuizSubmitted(true);
       setLoading(false);
-
-      if (wrong >= 2) {
-        // Failed - go back to studying
-        setTimeout(() => {
-          setPhase('studying');
-          setQuizSubmitted(false);
-          setUserAnswers({});
-        }, 3000);
-      } else {
-        // Passed!
-        setPhase('passed');
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 5000);
-      }
     } catch (e: any) {
       setError(e?.message || '채점에 실패했습니다.');
       setLoading(false);
@@ -192,6 +180,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
     setUserAnswers({});
     setQuizSubmitted(false);
     setWrongCount(0);
+    setGradeResults([]);
     setShowConfetti(false);
   };
 
@@ -304,6 +293,21 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
               </div>
             </div>
 
+            <div style={{
+              padding: 'clamp(16px, 5vw, 20px)',
+              background: 'var(--bg-secondary)',
+              borderRadius: 4,
+              border: '1px solid var(--border)'
+            }}>
+              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(6px, 2vw, 8px)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 'clamp(18px, 5vw, 20px)' }}>📝</span>
+                <span>STEP 3. 스피드 퀴즈로 테스트</span>
+              </div>
+              <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(11px, 3vw, 12px)', lineHeight: '1.5' }}>
+                자료를 다 외운 뒤 스피드 퀴즈도 풀어보세요!
+              </div>
+            </div>
+
             <button
               className="btn"
               onClick={handleGenerate}
@@ -362,7 +366,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
               <span className="alert-icon" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }}>📝</span>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>스피드 퀴즈 10문제!</div>
-                <div style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>⚠️ 2문제 이상 틀리면 다시 외워야 합니다</div>
+                <div style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>⚠️ 3문제 이상 틀리면 다시 외워야 합니다</div>
               </div>
             </div>
 
@@ -473,30 +477,170 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
 
         {/* Quiz Result */}
         {phase === 'quiz' && quizSubmitted && (
-          <div className="center" style={{ flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)', padding: 'clamp(40px, 12vw, 60px) 0' }}>
-            {wrongCount >= 2 ? (
-              <>
-                <div style={{ fontSize: 'clamp(56px, 16vw, 72px)' }}>😢</div>
-                <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 600 }}>
-                  {wrongCount}문제 틀렸습니다
-                </div>
-                <div style={{ color: 'var(--muted)', fontSize: 'clamp(13px, 3.5vw, 15px)', textAlign: 'center' }}>
-                  조금만 더 공부하고 돌아오세요!<br />
-                  3초 후 학습 화면으로 이동합니다...
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 'clamp(56px, 16vw, 72px)' }}>🎉</div>
-                <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 600 }}>
-                  합격입니다!
-                </div>
-                <div style={{ color: 'var(--muted)', fontSize: 'clamp(13px, 3.5vw, 15px)', textAlign: 'center' }}>
-                  {wrongCount === 0 ? '완벽합니다! 🎯' : `${wrongCount}문제만 틀렸어요!`}<br />
-                  축하 화면으로 이동합니다...
-                </div>
-              </>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
+            <div className="center" style={{ flexDirection: 'column', gap: 'clamp(12px, 4vw, 16px)', padding: 'clamp(20px, 6vw, 30px) 0' }}>
+              {wrongCount >= 3 ? (
+                <>
+                  <div style={{ fontSize: 'clamp(48px, 14vw, 64px)' }}>😢</div>
+                  <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 600 }}>
+                    {wrongCount}문제 틀렸습니다
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 14px)', textAlign: 'center' }}>
+                    아래 해설을 확인하고 다시 학습해보세요!
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 'clamp(48px, 14vw, 64px)' }}>🎉</div>
+                  <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 600 }}>
+                    합격입니다!
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 14px)', textAlign: 'center' }}>
+                    {wrongCount === 0 ? '완벽합니다! 🎯' : `${wrongCount}문제만 틀렸어요!`}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'clamp(12px, 4vw, 16px)',
+              maxHeight: '400px',
+              overflow: 'auto',
+              padding: '2px'
+            }}>
+              {gradeResults.map((result, idx) => {
+                const question = quiz[result.questionIndex];
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: 'clamp(14px, 4.5vw, 18px)',
+                      background: 'var(--panel)',
+                      borderRadius: 4,
+                      border: `2px solid ${result.isCorrect ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 67, 54, 0.5)'}`,
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginBottom: 'clamp(8px, 2.5vw, 10px)'
+                    }}>
+                      <span style={{
+                        background: result.isCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
+                        color: result.isCorrect ? 'rgb(76, 175, 80)' : 'rgb(244, 67, 54)',
+                        borderRadius: 4,
+                        padding: '2px 8px',
+                        fontSize: 'clamp(11px, 3vw, 12px)',
+                        fontWeight: 600,
+                        flexShrink: 0
+                      }}>
+                        {result.isCorrect ? '✓ 정답' : '✗ 오답'}
+                      </span>
+                      <span style={{
+                        fontSize: 'clamp(11px, 3vw, 12px)',
+                        color: 'var(--muted)',
+                        fontWeight: 600
+                      }}>
+                        Q{result.questionIndex + 1}
+                      </span>
+                    </div>
+
+                    <div style={{
+                      fontWeight: 600,
+                      fontSize: 'clamp(13px, 3.5vw, 14px)',
+                      marginBottom: 'clamp(10px, 3vw, 12px)'
+                    }}>
+                      {question.question}
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'clamp(6px, 2vw, 8px)',
+                      fontSize: 'clamp(12px, 3.2vw, 13px)'
+                    }}>
+                      <div>
+                        <span style={{ color: 'var(--muted)' }}>내 답변: </span>
+                        <span style={{ color: result.isCorrect ? 'rgb(76, 175, 80)' : 'rgb(244, 67, 54)' }}>
+                          {result.userAnswer || '(응답 없음)'}
+                        </span>
+                      </div>
+                      {!result.isCorrect && (
+                        <div>
+                          <span style={{ color: 'var(--muted)' }}>정답: </span>
+                          <span style={{ color: 'rgb(76, 175, 80)', fontWeight: 600 }}>
+                            {result.correctAnswer}
+                          </span>
+                        </div>
+                      )}
+                      <div style={{
+                        marginTop: 'clamp(4px, 1.5vw, 6px)',
+                        padding: 'clamp(8px, 2.5vw, 10px)',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: 4,
+                        fontSize: 'clamp(11px, 3vw, 12px)',
+                        lineHeight: '1.5'
+                      }}>
+                        <div style={{ color: 'var(--muted)', marginBottom: 4, fontWeight: 600 }}>💡 해설</div>
+                        <div>{result.explanation}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(10px, 3vw, 12px)' }}>
+              {wrongCount >= 3 ? (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setPhase('studying');
+                    setQuizSubmitted(false);
+                    setUserAnswers({});
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(14px, 4.5vw, 16px)',
+                    fontSize: 'clamp(14px, 4vw, 16px)',
+                    fontWeight: 600
+                  }}
+                >
+                  📚 다시 학습하기
+                </button>
+              ) : (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setPhase('passed');
+                    setShowConfetti(true);
+                    setTimeout(() => setShowConfetti(false), 5000);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: 'clamp(14px, 4.5vw, 16px)',
+                    fontSize: 'clamp(14px, 4vw, 16px)',
+                    fontWeight: 600
+                  }}
+                >
+                  🎉 축하 화면으로
+                </button>
+              )}
+              <button
+                className="btn secondary"
+                onClick={resetToStart}
+                style={{
+                  width: '100%',
+                  padding: 'clamp(10px, 3vw, 12px)',
+                  fontSize: 'clamp(12px, 3.2vw, 13px)'
+                }}
+              >
+                🔄 처음부터 다시
+              </button>
+            </div>
           </div>
         )}
 

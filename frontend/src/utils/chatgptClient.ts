@@ -14,6 +14,7 @@ export interface GradeResult {
   isCorrect: boolean;
   userAnswer: string;
   correctAnswer: string;
+  explanation: string;
 }
 
 export interface GradeResponse {
@@ -97,11 +98,11 @@ export async function gradeQuiz(
       messages: [
         {
           role: 'system',
-          content: '응답은 반드시 다음 JSON 형식으로만 작성해주세요:\n\n{"results": [{"questionIndex": 0, "isCorrect": true, "userAnswer": "답변", "correctAnswer": "정답"}], "wrongCount": 0}'
+          content: '응답은 반드시 다음 JSON 형식으로만 작성해주세요:\n\n{"results": [{"questionIndex": 0, "isCorrect": true, "userAnswer": "답변", "correctAnswer": "정답", "explanation": "해설"}], "wrongCount": 0}'
         },
         {
           role: 'user',
-          content: `다음 퀴즈 답안을 채점해주세요. 각 문제에 대해 사용자의 답변이 정답과 일치하는지 판단해주세요. 주관식의 경우 의미가 같으면 정답으로 인정해주세요.\n\n${JSON.stringify(questionsWithAnswers, null, 2)}\n\n각 문제별로 정답 여부를 판단하고, 전체 오답 개수를 세어주세요.`
+          content: `다음 퀴즈 답안을 채점해주세요. 각 문제에 대해 사용자의 답변이 정답과 일치하는지 판단해주세요. 주관식의 경우 의미가 같으면 정답으로 인정해주세요.\n\n${JSON.stringify(questionsWithAnswers, null, 2)}\n\n각 문제별로 정답 여부를 판단하고, 각 문제에 대한 간단한 해설(정답인 이유 또는 오답인 이유)을 포함해주세요. 전체 오답 개수도 세어주세요.`
         }
       ],
       temperature: 0.3,

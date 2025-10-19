@@ -72,25 +72,14 @@ export function downloadBase64Pdf(fileName: string, base64: string): void {
 }
 
 /**
- * Download PDF from URL
+ * Open PDF from URL in new tab
  */
 export async function downloadPdfFromUrl(fileName: string, url: string): Promise<void> {
   try {
-    // For CDN URLs, use direct download link instead of fetch to avoid CORS
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-
-    // Cleanup
-    document.body.removeChild(link);
+    // Open PDF in new tab instead of downloading
+    window.open(url, '_blank', 'noopener,noreferrer');
   } catch (error) {
-    console.error('Failed to download PDF from URL:', error);
-    throw new Error('PDF 다운로드에 실패했습니다.');
+    console.error('Failed to open PDF from URL:', error);
+    throw new Error('PDF 열기에 실패했습니다.');
   }
 }
