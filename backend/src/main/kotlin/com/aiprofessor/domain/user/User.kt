@@ -22,8 +22,6 @@ class User(
     val email: String,
     @Column(nullable = false)
     var isActive: Boolean = true,
-    @Column(nullable = true)
-    var emailVerificationExpiry: LocalDateTime? = null,
     @Column(nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     @Column(nullable = false)

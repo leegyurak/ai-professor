@@ -104,7 +104,6 @@ class AuthService(
                 password = encodedPassword,
                 email = email,
                 isActive = false,
-                emailVerificationExpiry = null,
             )
 
         val savedUser = userRepository.save(user)
