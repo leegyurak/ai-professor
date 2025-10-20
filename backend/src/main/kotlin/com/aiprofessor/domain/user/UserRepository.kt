@@ -9,5 +9,7 @@ interface UserRepository {
 
     fun existsByUsername(username: String): Boolean
 
+    fun findAll(): List<User>
+
     fun delete(user: User)
 }

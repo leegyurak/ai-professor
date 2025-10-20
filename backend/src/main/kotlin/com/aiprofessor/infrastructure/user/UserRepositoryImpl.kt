@@ -16,5 +16,7 @@ class UserRepositoryImpl(
 
     override fun existsByUsername(username: String): Boolean = jpaUserRepository.existsByUsername(username)
 
+    override fun findAll(): List<User> = jpaUserRepository.findAll()
+
     override fun delete(user: User) = jpaUserRepository.delete(user)
 }

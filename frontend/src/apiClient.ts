@@ -263,3 +263,15 @@ export async function generateCramming(params: CrammingParams, token: string): P
     authToken: token
   });
 }
+
+// Email Verification API
+export interface VerifyEmailResult {
+  success: boolean;
+  message: string;
+}
+
+export async function verifyEmail(token: string): Promise<VerifyEmailResult> {
+  return http<VerifyEmailResult>(`/api/auth/verify-email?token=${token}`, {
+    method: 'GET'
+  });
+}

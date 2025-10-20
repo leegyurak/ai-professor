@@ -50,7 +50,7 @@ class DuplicateUsernameException(
 ) : BusinessException("이미 사용 중인 아이디입니다: $username")
 
 class UserNotActiveException(
-    message: String = "아직 승인 전이에요!",
+    message: String = "이메일 인증이 완료되지 않았어요!",
 ) : BusinessException(message)
 
 /**

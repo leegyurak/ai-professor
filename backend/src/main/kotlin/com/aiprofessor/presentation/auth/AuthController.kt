@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -67,6 +68,14 @@ class AuthController(
         return ResponseEntity.noContent().build()
     }
 
+    @GetMapping("/verify-email")
+    fun verifyEmail(
+        @RequestParam token: String,
+    ): ResponseEntity<VerifyEmailResponse> {
+        val success = authService.verifyEmail(token)
+        return ResponseEntity.ok(VerifyEmailResponse(success = success, message = "이메일 인증이 완료되었습니다. 이제 로그인하실 수 있습니다."))
+    }
+
     private fun getCurrentUserId(): Long {
         val authentication = SecurityContextHolder.getContext().authentication
         return when (val principal = authentication.principal) {
@@ -108,4 +117,9 @@ data class LoginRequest(
     val password: String,
     @field:NotBlank(message = "MAC address is required")
     val macAddress: String,
+)
+
+data class VerifyEmailResponse(
+    val success: Boolean,
+    val message: String,
 )

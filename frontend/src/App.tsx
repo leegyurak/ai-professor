@@ -1,12 +1,102 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MAX_PDF_SIZE } from '@/shared/config';
-import { generate, getHistory, login, logout, register } from './apiClient';
+import { generate, getHistory, login, logout, register, verifyEmail } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
 import { CrammingTab } from './components/CrammingTab';
 import { UserProfileModal } from './components/UserProfileModal';
 import { initTwemoji } from './utils/emojiUtils';
+
+function EmailVerificationScreen() {
+  const [loading, setLoading] = useState(true);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      // URL에서 token 파라미터 가져오기
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      if (!token) {
+        setError('인증 토큰이 없습니다.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const result = await verifyEmail(token);
+        if (result.success) {
+          setSuccess(true);
+        } else {
+          setError(result.message || '이메일 인증에 실패했습니다.');
+        }
+      } catch (e: any) {
+        setError(e?.message || '이메일 인증 중 오류가 발생했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyToken();
+  }, []);
+
+  return (
+    <div className="center" style={{ minHeight: '100vh', background: 'var(--bg-secondary)', padding: 'clamp(16px, 5vw, 24px)' }}>
+      <div className="card" style={{ maxWidth: 500, width: '100%', padding: 'clamp(24px, 7vw, 40px)' }}>
+        <div style={{ textAlign: 'center' }}>
+          {loading ? (
+            <>
+              <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 20px' }} />
+              <h1 className="title" style={{ fontSize: 'clamp(20px, 6vw, 24px)', marginBottom: 'clamp(8px, 2.5vw, 12px)' }}>
+                이메일 인증 중...
+              </h1>
+              <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 14px)' }}>
+                잠시만 기다려주세요
+              </div>
+            </>
+          ) : success ? (
+            <>
+              <div style={{ fontSize: 'clamp(48px, 14vw, 64px)', marginBottom: 'clamp(12px, 4vw, 16px)' }}>✅</div>
+              <h1 className="title" style={{ fontSize: 'clamp(20px, 6vw, 24px)', marginBottom: 'clamp(8px, 2.5vw, 12px)' }}>
+                이메일 인증 완료!
+              </h1>
+              <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 14px)', lineHeight: '1.5', marginBottom: 'clamp(20px, 6vw, 24px)' }}>
+                이메일 인증이 완료되었습니다.<br />
+                이제 로그인하실 수 있습니다.
+              </div>
+              <button
+                className="btn"
+                onClick={() => window.location.href = '/'}
+                style={{ padding: 'clamp(10px, 3vw, 12px) clamp(20px, 6vw, 24px)', fontSize: 'clamp(13px, 3.5vw, 14px)' }}
+              >
+                로그인 페이지로 이동
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 'clamp(48px, 14vw, 64px)', marginBottom: 'clamp(12px, 4vw, 16px)' }}>❌</div>
+              <h1 className="title" style={{ fontSize: 'clamp(20px, 6vw, 24px)', marginBottom: 'clamp(8px, 2.5vw, 12px)' }}>
+                인증 실패
+              </h1>
+              <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 14px)', lineHeight: '1.5', marginBottom: 'clamp(20px, 6vw, 24px)' }}>
+                {error}
+              </div>
+              <button
+                className="btn secondary"
+                onClick={() => window.location.href = '/'}
+                style={{ padding: 'clamp(10px, 3vw, 12px) clamp(20px, 6vw, 24px)', fontSize: 'clamp(13px, 3.5vw, 14px)' }}
+              >
+                홈으로 돌아가기
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PrivacyScreen() {
   return (
@@ -288,10 +378,12 @@ function LoginScreen({ onDone }: { onDone: (username: string, token: string) => 
               <div style={{ textAlign: 'center', padding: 'clamp(20px, 6vw, 30px) 0' }}>
                 <div style={{ fontSize: 'clamp(40px, 12vw, 48px)', marginBottom: 'clamp(12px, 4vw, 16px)' }}>✅</div>
                 <div style={{ fontSize: 'clamp(16px, 4.5vw, 18px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>
-                  가입 성공!
+                  가입 이메일이 전송되었습니다!
                 </div>
                 <div style={{ color: 'var(--muted)', fontSize: 'clamp(13px, 3.5vw, 14px)', lineHeight: '1.5' }}>
-                  승인 대기 중이에요
+                  이메일을 확인해주세요.<br />
+                  만약 이메일이 보이지 않는다면<br />
+                  스팸함을 확인해주세요.
                 </div>
               </div>
             ) : (
@@ -1351,6 +1443,11 @@ export default function App() {
   // Check if current path is /privacy
   if (window.location.pathname === '/privacy') {
     return <PrivacyScreen />;
+  }
+
+  // Check if current path is /verify
+  if (window.location.pathname === '/verify') {
+    return <EmailVerificationScreen />;
   }
 
   return session ? (

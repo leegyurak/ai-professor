@@ -23,6 +23,18 @@ spring:
   data:
     redis:
       timeout: 60000
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: test@test.com
+    password: test-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
 
 jwt:
   secret: test-secret-key-for-jwt-token-generation-minimum-256-bits-required-for-hs256-algorithm
