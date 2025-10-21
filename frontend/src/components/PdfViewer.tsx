@@ -39,6 +39,10 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
   const [pagesProcessingOCR, setPagesProcessingOCR] = useState<Set<number>>(new Set());
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+  const autoScrollRef = useRef<number | null>(null);
+  const dragThreshold = 5; // pixels to consider as drag vs click
   const ocrWorkerRef = useRef<any>(null);
 
   // Flatten all areas for display
@@ -51,12 +55,21 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     return allIndices;
   }, [selectionAreas, currentSelection]);
 
-  // Clear selection when file changes
+  // Clear selection and text boxes when file changes
   useEffect(() => {
     setSelectionAreas([]);
     setCurrentSelection(new Set());
     setIsSelecting(false);
     setSelectionStart(null);
+    setHasDragged(false);
+    setDragStartPos(null);
+    setHoveredIndex(null);
+
+    // Clear auto-scroll
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current);
+      autoScrollRef.current = null;
+    }
   }, [file]);
 
   // Restore selection from selectedAreas prop when textItems load
@@ -168,6 +181,9 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     return () => {
       if (ocrWorkerRef.current) {
         ocrWorkerRef.current.terminate();
+      }
+      if (autoScrollRef.current) {
+        cancelAnimationFrame(autoScrollRef.current);
       }
     };
   }, []);
@@ -400,29 +416,59 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     };
   }, [pdf, numPages]);
 
-  const handleStart = (index: number) => {
+  const handleStart = (index: number, clientX?: number, clientY?: number) => {
     setIsSelecting(true);
     setSelectionStart(index);
+    setHasDragged(false);
 
-    // If already selected, mark for potential deselection (will be checked on end)
-    if (selectedIndices.has(index)) {
-      setHasDragged(false); // Only set false if clicking already selected item
-      return;
+    // Store drag start position for threshold detection
+    if (clientX !== undefined && clientY !== undefined) {
+      setDragStartPos({ x: clientX, y: clientY });
     }
 
-    // Start new selection
-    setHasDragged(true);
+    console.log('[PDF Viewer] handleStart:', {
+      index,
+      text: textItems[index]?.text,
+      isAlreadySelected: selectedIndices.has(index)
+    });
+
+    // Always start new selection - let handleEnd decide what to do with existing selections
     setCurrentSelection(new Set([index]));
   };
 
-  const handleMove = (index: number) => {
+  const handleMove = (index: number, clientX?: number, clientY?: number) => {
     if (isSelecting && selectionStart !== null) {
-      setHasDragged(true); // Mark that dragging occurred
+      // Check for drag conditions - only when we have valid text indices
+      if (!hasDragged && textItems[selectionStart] && textItems[index]) {
+        // If moving to a different index, it's considered a drag
+        if (index !== selectionStart) {
+          setHasDragged(true);
+          console.log('[PDF Viewer] Drag detected by text index change:', selectionStart, '->', index);
+        }
+        // Additional threshold check for fine-grained control
+        else if (dragStartPos && clientX !== undefined && clientY !== undefined) {
+          const distance = Math.sqrt(
+            Math.pow(clientX - dragStartPos.x, 2) + Math.pow(clientY - dragStartPos.y, 2)
+          );
+          if (distance >= dragThreshold) {
+            setHasDragged(true);
+            console.log('[PDF Viewer] Drag detected by pixel threshold:', distance, 'pixels');
+          }
+        }
+      }
 
       const startItem = textItems[selectionStart];
       const endItem = textItems[index];
 
-      // Get all items in the range
+      console.log('[PDF Viewer] handleMove:', {
+        startIndex: selectionStart,
+        endIndex: index,
+        startItem: { text: startItem.text, x: startItem.x, y: startItem.y },
+        endItem: { text: endItem.text, x: endItem.x, y: endItem.y },
+        sameLine: Math.abs(startItem.y - endItem.y) < 15
+      });
+
+      // Improved selection algorithm for more natural text flow
       const itemsInRange = textItems
         .map((item, idx) => ({ item, idx }))
         .filter(({ idx }) => {
@@ -432,23 +478,56 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
           if (startItem.pageIndex === endItem.pageIndex) {
             if (currentItem.pageIndex !== startItem.pageIndex) return false;
 
-            // Create a bounding box from start to end
-            const minY = Math.min(startItem.y, endItem.y);
-            const maxY = Math.max(startItem.y + startItem.height, endItem.y + endItem.height);
-            const minX = Math.min(startItem.x, endItem.x);
-            const maxX = Math.max(startItem.x + startItem.width, endItem.x + endItem.width);
+            // Check if start and end are on the same line (simplified)
+            const startEndSameLine = Math.abs(startItem.y - endItem.y) < 15;
 
-            // Check if current item overlaps with the bounding box
-            const itemBottom = currentItem.y + currentItem.height;
-            const itemRight = currentItem.x + currentItem.width;
+            if (startEndSameLine) {
+              // Single line selection - much simpler logic
+              const currentSameLine = Math.abs(currentItem.y - startItem.y) < 15;
+              if (!currentSameLine) return false;
 
-            // Item overlaps if it's not completely outside the box
-            const overlapsY = currentItem.y <= maxY && itemBottom >= minY;
-            const overlapsX = currentItem.x <= maxX + 10 && itemRight >= minX - 10;
+              // On same line, select everything between start and end X coordinates
+              const leftX = Math.min(startItem.x, endItem.x);
+              const rightX = Math.max(startItem.x + startItem.width, endItem.x + endItem.width);
 
-            return overlapsY && overlapsX;
+              // Current item should overlap with the selection range
+              const currentRight = currentItem.x + currentItem.width;
+              const included = (currentItem.x <= rightX + 5) && (currentRight >= leftX - 5);
+
+              if (idx <= 10) { // Log first few items for debugging
+                console.log(`[Single Line] Item ${idx}: "${currentItem.text}" x:${currentItem.x}-${currentRight} y:${currentItem.y} | Range x:${leftX}-${rightX} | Included: ${included}`);
+              }
+
+              return included;
+            } else {
+              // Multi-line selection on same page
+              // Determine reading order direction
+              const isReversed = startItem.y > endItem.y ||
+                (Math.abs(startItem.y - endItem.y) < 10 && startItem.x > endItem.x);
+
+              const topItem = isReversed ? endItem : startItem;
+              const bottomItem = isReversed ? startItem : endItem;
+
+              const topY = topItem.y;
+              const bottomY = bottomItem.y + bottomItem.height;
+
+              // Item on first line of selection
+              if (Math.abs(currentItem.y - topItem.y) < 15) {
+                return currentItem.x >= topItem.x - 5;
+              }
+              // Item on last line of selection
+              else if (Math.abs(currentItem.y - bottomItem.y) < 15) {
+                return currentItem.x + currentItem.width <= bottomItem.x + bottomItem.width + 5;
+              }
+              // Item on middle lines
+              else if (currentItem.y > topY + 5 && currentItem.y < bottomY - 5) {
+                return true;
+              }
+
+              return false;
+            }
           } else {
-            // Multi-page selection: include all items between start and end pages
+            // Multi-page selection with improved logic
             const minPage = Math.min(startItem.pageIndex, endItem.pageIndex);
             const maxPage = Math.max(startItem.pageIndex, endItem.pageIndex);
 
@@ -458,16 +537,14 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
             // On start page, select from start position to end of page
             if (currentItem.pageIndex === startItem.pageIndex && startItem.pageIndex !== endItem.pageIndex) {
-              const isAfterStart = currentItem.y >= startItem.y ||
+              return currentItem.y > startItem.y ||
                 (Math.abs(currentItem.y - startItem.y) < 10 && currentItem.x >= startItem.x);
-              return isAfterStart;
             }
 
             // On end page, select from start of page to end position
             if (currentItem.pageIndex === endItem.pageIndex && startItem.pageIndex !== endItem.pageIndex) {
-              const isBeforeEnd = currentItem.y <= endItem.y + endItem.height ||
+              return currentItem.y < endItem.y + endItem.height ||
                 (Math.abs(currentItem.y - endItem.y) < 10 && currentItem.x <= endItem.x + endItem.width);
-              return isBeforeEnd;
             }
 
             // On middle pages, select everything
@@ -476,12 +553,23 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
         })
         .map(({ idx }) => idx);
 
+      console.log('[PDF Viewer] Selection result:', {
+        itemsInRange: itemsInRange.length,
+        selectedTexts: itemsInRange.slice(0, 5).map(idx => textItems[idx].text)
+      });
+
       setCurrentSelection(new Set(itemsInRange));
     }
   };
 
   const handleEnd = () => {
     const clickedIndex = selectionStart;
+
+    // Clear auto-scroll
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current);
+      autoScrollRef.current = null;
+    }
 
     // Helper function to convert indices to text
     const indicesToText = (indices: Set<number>) => {
@@ -499,8 +587,40 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
       return sortedIndices.map(i => textItems[i].text).join(' ').trim();
     };
 
-    // Check if this was a click (not drag) on an already selected item - remove that area
-    if (!hasDragged && clickedIndex !== null && selectedIndices.has(clickedIndex)) {
+    console.log('[PDF Viewer] handleEnd:', {
+      hasDragged,
+      currentSelectionSize: currentSelection.size,
+      clickedIndex,
+      isClickedIndexSelected: clickedIndex !== null ? selectedIndices.has(clickedIndex) : false,
+      currentSelectionContent: Array.from(currentSelection).slice(0, 3).map(idx => textItems[idx]?.text || 'undefined'),
+      hasValidTextIndex: clickedIndex !== null && textItems[clickedIndex] !== undefined
+    });
+
+    // If we don't have a valid starting text index, cancel the selection
+    if (clickedIndex !== null && !textItems[clickedIndex]) {
+      console.log('[PDF Viewer] No valid text index, canceling selection');
+      setIsSelecting(false);
+      setSelectionStart(null);
+      setHasDragged(false);
+      setDragStartPos(null);
+      setHoveredIndex(null);
+      setCurrentSelection(new Set());
+      return;
+    }
+
+    // Determine if this was a simple click or a drag
+    const wasSimpleClick = !hasDragged && currentSelection.size <= 1;
+    const wasOnExistingSelection = clickedIndex !== null && selectedIndices.has(clickedIndex);
+
+    console.log('[PDF Viewer] Action analysis:', {
+      wasSimpleClick,
+      wasOnExistingSelection,
+      willRemoveSelection: wasSimpleClick && wasOnExistingSelection,
+      willAddSelection: !(wasSimpleClick && wasOnExistingSelection) && currentSelection.size > 0
+    });
+
+    if (wasSimpleClick && wasOnExistingSelection) {
+      console.log('[PDF Viewer] Removing selected area - simple click on existing selection');
       // Find and remove the area containing this index
       const newAreas = selectionAreas.filter(area => !area.has(clickedIndex));
       setSelectionAreas(newAreas);
@@ -508,26 +628,57 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
       // Convert all areas to text array and notify parent
       const areasText = newAreas.map(area => indicesToText(area)).filter(t => t);
       onAreasSelect(areasText);
-    } else if (hasDragged && currentSelection.size > 0) {
-      // Drag completed - add current selection as a new area
+    } else if (currentSelection.size > 0) {
+      // Any selection with content - add current selection as a new area
+      console.log('[PDF Viewer] Adding new selection area:', currentSelection.size, 'items',
+        'hasDragged:', hasDragged, 'content:', Array.from(currentSelection).slice(0, 3).map(idx => textItems[idx]?.text));
       const newAreas = [...selectionAreas, currentSelection];
       setSelectionAreas(newAreas);
       setCurrentSelection(new Set());
 
       // Convert all areas to text array and notify parent
       const areasText = newAreas.map(area => indicesToText(area)).filter(t => t);
+      console.log('[PDF Viewer] Notifying parent with areas:', areasText.length);
       onAreasSelect(areasText);
+    } else {
+      console.log('[PDF Viewer] No action taken - no current selection');
     }
 
+    // Reset all selection state
     setIsSelecting(false);
     setSelectionStart(null);
     setHasDragged(false);
+    setDragStartPos(null);
+    setHoveredIndex(null);
   };
 
   const clearSelection = () => {
     setSelectionAreas([]);
     setCurrentSelection(new Set());
     onAreasSelect([]);
+  };
+
+  // Smooth auto-scroll function
+  const autoScroll = (container: HTMLElement, direction: 'up' | 'down') => {
+    const scrollSpeed = 8;
+    const maxScroll = direction === 'up' ? 0 : container.scrollHeight - container.clientHeight;
+
+    const scroll = () => {
+      if (direction === 'up') {
+        container.scrollTop = Math.max(maxScroll, container.scrollTop - scrollSpeed);
+      } else {
+        container.scrollTop = Math.min(maxScroll, container.scrollTop + scrollSpeed);
+      }
+
+      // Continue scrolling if we haven't reached the edge and still selecting
+      if (isSelecting &&
+          ((direction === 'up' && container.scrollTop > maxScroll) ||
+           (direction === 'down' && container.scrollTop < maxScroll))) {
+        autoScrollRef.current = requestAnimationFrame(scroll);
+      }
+    };
+
+    autoScrollRef.current = requestAnimationFrame(scroll);
   };
 
   // Handle touch move at container level for better drag support
@@ -540,47 +691,51 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     if (element && element.hasAttribute('data-text-index')) {
       const idx = parseInt(element.getAttribute('data-text-index')!, 10);
       if (!isNaN(idx)) {
-        handleMove(idx);
+        handleMove(idx, touch.clientX, touch.clientY);
       }
     }
 
-    // Auto-scroll when dragging near edges
+    // Improved auto-scroll when dragging near edges
     const container = containerRef.current;
     if (container) {
       const rect = container.getBoundingClientRect();
-      const threshold = 50; // pixels from edge to trigger scroll
-      const scrollSpeed = 10;
+      const threshold = 60; // pixels from edge to trigger scroll
+
+      // Clear existing auto-scroll
+      if (autoScrollRef.current) {
+        cancelAnimationFrame(autoScrollRef.current);
+        autoScrollRef.current = null;
+      }
 
       if (touch.clientY - rect.top < threshold) {
         // Near top
-        container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+        autoScroll(container, 'up');
       } else if (rect.bottom - touch.clientY < threshold) {
         // Near bottom
-        container.scrollTop = Math.min(
-          container.scrollHeight - container.clientHeight,
-          container.scrollTop + scrollSpeed
-        );
+        autoScroll(container, 'down');
       }
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
         <div className="small" style={{ color: 'var(--muted)', fontSize: 12 }}>
           {isProcessingOCR
             ? `OCR 처리 중... (${ocrProgress.current}/${ocrProgress.total} 페이지)`
-            : '드래그하여 여러 영역 선택 가능'}
+            : '드래그로 텍스트 선택'}
         </div>
-        {selectedIndices.size > 0 && (
-          <button
-            className="btn secondary"
-            onClick={clearSelection}
-            style={{ padding: '4px 8px', fontSize: 11 }}
-          >
-            선택 해제
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {selectedIndices.size > 0 && (
+            <button
+              className="btn secondary"
+              onClick={clearSelection}
+              style={{ padding: '4px 8px', fontSize: 11 }}
+            >
+              선택 해제
+            </button>
+          )}
+        </div>
       </div>
 
       {selectedAreas.length > 0 && (
@@ -618,27 +773,47 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
           border: '1px solid var(--border)',
           borderRadius: 4,
           background: '#f5f5f5',
-          cursor: isSelecting ? 'text' : 'default',
+          cursor: isSelecting ? 'grabbing' : 'default',
+          userSelect: 'none',
         }}
         onMouseUp={handleEnd}
-        onMouseLeave={() => setIsSelecting(false)}
+        onMouseLeave={() => {
+          setIsSelecting(false);
+          setHoveredIndex(null);
+          if (autoScrollRef.current) {
+            cancelAnimationFrame(autoScrollRef.current);
+            autoScrollRef.current = null;
+          }
+        }}
         onMouseMove={(e) => {
-          // Auto-scroll when dragging near edges with mouse
-          if (!isSelecting) return;
+          // Only handle text selection if we're actively selecting
+          if (!isSelecting || selectionStart === null) return;
 
+          // Find text element under mouse cursor
+          const element = document.elementFromPoint(e.clientX, e.clientY);
+          if (element && element.hasAttribute('data-text-index')) {
+            const idx = parseInt(element.getAttribute('data-text-index')!, 10);
+            if (!isNaN(idx)) {
+              handleMove(idx, e.clientX, e.clientY);
+            }
+          }
+
+          // Improved auto-scroll when dragging near edges with mouse
           const container = containerRef.current;
           if (container) {
             const rect = container.getBoundingClientRect();
-            const threshold = 50;
-            const scrollSpeed = 10;
+            const threshold = 60;
+
+            // Clear existing auto-scroll
+            if (autoScrollRef.current) {
+              cancelAnimationFrame(autoScrollRef.current);
+              autoScrollRef.current = null;
+            }
 
             if (e.clientY - rect.top < threshold) {
-              container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+              autoScroll(container, 'up');
             } else if (rect.bottom - e.clientY < threshold) {
-              container.scrollTop = Math.min(
-                container.scrollHeight - container.clientHeight,
-                container.scrollTop + scrollSpeed
-              );
+              autoScroll(container, 'down');
             }
           }
         }}
@@ -686,27 +861,64 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
 
                   const isPageProcessingOCR = pagesProcessingOCR.has(i);
 
+                  const handleMouseDown = (e: React.MouseEvent) => {
+                    if (isPageProcessingOCR) return;
+                    e.preventDefault();
+                    handleStart(globalIdx, e.clientX, e.clientY);
+                  };
+
+                  const handleMouseEnter = () => {
+                    if (!isPageProcessingOCR) {
+                      setHoveredIndex(globalIdx);
+                      if (isSelecting) {
+                        handleMove(globalIdx);
+                      }
+                    }
+                  };
+
+                  const handleMouseLeave = () => {
+                    if (hoveredIndex === globalIdx) {
+                      setHoveredIndex(null);
+                    }
+                  };
+
                   const handleTouchStart = (e: React.TouchEvent) => {
                     if (isPageProcessingOCR) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    handleStart(globalIdx);
+                    const touch = e.touches[0];
+                    handleStart(globalIdx, touch.clientX, touch.clientY);
                   };
 
-                  // Different colors for current selection vs saved areas
+                  // Enhanced visual feedback with hover effects
+                  const isHovered = hoveredIndex === globalIdx;
                   let backgroundColor = 'transparent';
+
                   if (isInCurrentSelection && isSelecting) {
-                    backgroundColor = 'rgba(33, 150, 243, 0.3)'; // Blue for active selection
+                    backgroundColor = 'rgba(33, 150, 243, 0.4)'; // Blue for active selection
                   } else if (isInSavedArea) {
                     backgroundColor = 'rgba(255, 235, 59, 0.4)'; // Yellow for saved areas
+                  } else if (isHovered && !isSelecting) {
+                    backgroundColor = 'rgba(158, 158, 158, 0.2)'; // Light gray hover
+                  }
+
+                  // Enhanced cursor states
+                  let cursor = 'text';
+                  if (isPageProcessingOCR) {
+                    cursor = 'wait';
+                  } else if (isSelecting) {
+                    cursor = 'grabbing';
+                  } else if (isInSavedArea) {
+                    cursor = 'pointer';
                   }
 
                   return (
                     <div
                       key={idx}
                       data-text-index={globalIdx}
-                      onMouseDown={() => !isPageProcessingOCR && handleStart(globalIdx)}
-                      onMouseEnter={() => !isPageProcessingOCR && handleMove(globalIdx)}
+                      onMouseDown={handleMouseDown}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
                       onTouchStart={handleTouchStart}
                       style={{
                         position: 'absolute',
@@ -714,13 +926,18 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
                         top: `${topPercent}%`,
                         width: `${widthPercent}%`,
                         height: `${heightPercent}%`,
-                        cursor: isPageProcessingOCR ? 'wait' : 'text',
+                        cursor,
                         background: backgroundColor,
-                        transition: isSelecting ? 'background 0.05s ease-out' : 'background 0.15s ease-out',
+                        transition: isSelecting
+                          ? 'background 0.05s ease-out, transform 0.05s ease-out'
+                          : 'background 0.2s ease-out, transform 0.1s ease-out',
                         pointerEvents: 'auto',
                         touchAction: 'none',
                         WebkitUserSelect: 'none',
                         userSelect: 'none',
+                        borderRadius: '2px',
+                        transform: isHovered && !isSelecting ? 'scale(1.02)' : 'scale(1)',
+                        zIndex: isInCurrentSelection || isInSavedArea || isHovered ? 10 : 1,
                       }}
                     />
                   );

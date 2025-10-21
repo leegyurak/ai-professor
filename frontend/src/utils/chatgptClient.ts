@@ -167,3 +167,101 @@ export async function gradeQuiz(
     wrongCount: totalWrongCount
   } as GradeResponse;
 }
+
+/**
+ * Chat with ChatGPT using streaming
+ * @param userMessage User's question
+ * @param pdfContent PDF content or context
+ * @param selectedText Selected text from PDF
+ * @param apiKey OpenAI API key
+ * @param onChunk Callback for each chunk of response
+ * @returns AsyncGenerator that yields response chunks
+ */
+export async function* chatWithPdfStream(
+  userMessage: string,
+  pdfContent: string,
+  selectedText: string[],
+  apiKey: string,
+  onChunk?: (chunk: string) => void
+): AsyncGenerator<string, void, unknown> {
+  const systemMessage = `당신은 학습 자료를 돕는 AI 교수입니다. 학생들이 PDF 내용에 대해 질문하면 친절하고 명확하게 답변해주세요.`;
+
+  let userContent = userMessage;
+
+  if (selectedText.length > 0) {
+    userContent = `다음은 PDF에서 학생이 선택한 중요한 부분입니다:\n\n${selectedText.map((text, i) => `[선택 영역 ${i + 1}]\n${text}`).join('\n\n')}\n\n학생의 질문: ${userMessage}`;
+  } else if (pdfContent) {
+    userContent = `다음은 PDF의 내용입니다:\n\n${pdfContent}\n\n학생의 질문: ${userMessage}`;
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: systemMessage
+        },
+        {
+          role: 'user',
+          content: userContent
+        }
+      ],
+      temperature: 0.7,
+      stream: true
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`ChatGPT API 오류: ${error.error?.message || '알 수 없는 오류'}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Failed to get response reader');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') {
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              if (onChunk) {
+                onChunk(content);
+              }
+              yield content;
+            }
+          } catch (e) {
+            // Ignore parsing errors for incomplete JSON
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}

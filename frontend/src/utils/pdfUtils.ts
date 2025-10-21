@@ -83,3 +83,20 @@ export async function downloadPdfFromUrl(_fileName: string, url: string): Promis
     throw new Error('PDF 열기에 실패했습니다.');
   }
 }
+
+/**
+ * Fetch PDF from URL and convert to File object
+ */
+export async function fetchPdfAsFile(url: string, filename: string): Promise<File> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return new File([blob], filename, { type: 'application/pdf' });
+  } catch (error) {
+    console.error('Failed to fetch PDF from URL:', error);
+    throw new Error('PDF 가져오기에 실패했습니다.');
+  }
+}

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { MAX_PDF_SIZE } from '@/shared/config';
 import { generate, getHistory, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
-import { fileToBase64, getPdfPageCount, downloadPdfFromUrl } from './utils/pdfUtils';
+import { fileToBase64, getPdfPageCount, downloadPdfFromUrl, fetchPdfAsFile } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
 import { CrammingTab } from './components/CrammingTab';
 import { UserProfileModal } from './components/UserProfileModal';
+import { chatWithPdfStream } from './utils/chatgptClient';
 
 function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   const [drag, setDrag] = useState(false);
@@ -101,6 +102,87 @@ export function MainScreen({ username, token }: { username: string; token: strin
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [autoCloseTimeoutId, setAutoCloseTimeoutId] = useState<number | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [resultPdfFiles, setResultPdfFiles] = useState<Array<{ file: File; filename: string; url: string }>>([]);
+  const [showResultPdfModal, setShowResultPdfModal] = useState(false);
+  const [currentResultFileIndex, setCurrentResultFileIndex] = useState(0);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [selectedPdfText, setSelectedPdfText] = useState<string[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Send chat message with streaming
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || isChatLoading) return;
+
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      setError('OpenAI API 키가 설정되지 않았습니다.');
+      return;
+    }
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setIsChatLoading(true);
+
+    // Add user message
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+
+    // Add empty assistant message that will be filled with streaming content
+    setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      // Use selected text from PDF, or empty string if no text selected
+      const pdfContent = ''; // Could extract text from PDF file if needed
+
+      let accumulatedContent = '';
+
+      for await (const chunk of chatWithPdfStream(
+        userMessage,
+        pdfContent,
+        selectedPdfText,
+        apiKey
+      )) {
+        accumulatedContent += chunk;
+
+        // Update the last message with accumulated content using functional update
+        setChatMessages(prev => {
+          const newMessages = [...prev];
+          const lastMessageIndex = newMessages.length - 1;
+          if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'assistant') {
+            newMessages[lastMessageIndex] = {
+              ...newMessages[lastMessageIndex],
+              content: accumulatedContent
+            };
+          }
+          return newMessages;
+        });
+      }
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      // Update the last message with error
+      setChatMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessageIndex = newMessages.length - 1;
+        if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'assistant') {
+          newMessages[lastMessageIndex] = {
+            ...newMessages[lastMessageIndex],
+            content: `오류가 발생했습니다: ${error.message}`
+          };
+        }
+        return newMessages;
+      });
+    } finally {
+      setIsChatLoading(false);
+      // Clear text selection after question is answered
+      setSelectedPdfText([]);
+    }
+  };
 
   // Detect screen size changes
   useEffect(() => {
@@ -266,11 +348,15 @@ export function MainScreen({ username, token }: { username: string; token: strin
       // 다운로드 완료 상태로 전환
       setDownloadComplete(true);
 
-      // 모든 파일 다운로드 시도
+      // 모든 파일을 File 객체로 변환
+      const pdfFiles: Array<{ file: File; filename: string; url: string }> = [];
       for (const result of results) {
-        await downloadPdfFromUrl(result.filename, result.url);
-        // 다운로드 간 짧은 딜레이 (브라우저가 다운로드를 처리할 시간 제공)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // 개발환경에서는 고정된 URL 사용
+        const pdfUrl = import.meta.env.DEV
+          ? 'https://cdn.devgyurak.com/datas/input/devgyurak_24ed1a3f-b57d-4ad2-9ef2-0af74e7d0e97.pdf'
+          : result.url;
+        const file = await fetchPdfAsFile(pdfUrl, result.filename);
+        pdfFiles.push({ file, filename: result.filename, url: pdfUrl });
       }
 
       // Clear cache and reload history after generating (reset to first page)
@@ -279,21 +365,20 @@ export function MainScreen({ username, token }: { username: string; token: strin
         await loadHistory(0);
       }
 
-      // 10초 후 자동으로 오버레이 닫기
-      const timeoutId = window.setTimeout(() => {
-        // 먼저 로딩 상태를 false로 변경하여 모달을 제거
-        setLoading(false);
-        // 다음 틱에서 나머지 state 정리
-        setTimeout(() => {
-          setDownloadComplete(false);
-          setFiles([]);
-          setPrompt('');
-          setSelectedAreasByFile(new Map());
-          setFileBase64Map(new Map());
-          setAutoCloseTimeoutId(null);
-        }, 0);
-      }, 10000);
-      setAutoCloseTimeoutId(timeoutId);
+      // 로딩 상태를 false로 변경하여 로딩 모달 제거
+      setLoading(false);
+      setDownloadComplete(false);
+
+      // 결과 PDF 파일들을 state에 저장하고 모달 표시
+      setResultPdfFiles(pdfFiles);
+      setCurrentResultFileIndex(0);
+      setShowResultPdfModal(true);
+
+      // Clear input state
+      setFiles([]);
+      setPrompt('');
+      setSelectedAreasByFile(new Map());
+      setFileBase64Map(new Map());
     } catch (e: any) {
       setError(e?.message || '요청 중 오류가 발생했습니다.');
       setLoading(false);
@@ -891,6 +976,317 @@ export function MainScreen({ username, token }: { username: string; token: strin
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Result PDF Viewer Modal with Chat */}
+      {showResultPdfModal && resultPdfFiles.length > 0 && (
+        <div
+          className="overlay"
+          style={{
+            display: 'flex',
+            gap: '16px',
+            padding: '16px',
+            alignItems: 'stretch'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowResultPdfModal(false);
+              setResultPdfFiles([]);
+              setCurrentResultFileIndex(0);
+              setChatMessages([]);
+              setChatInput('');
+              setSelectedPdfText([]);
+              setIsChatLoading(false);
+            }
+          }}
+        >
+          {/* Left Panel - PDF Viewer */}
+          <div
+            className="card"
+            style={{
+              padding: '24px',
+              flex: 1,
+              maxWidth: '50%',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              height: 'calc(100vh - 32px)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexShrink: 0, gap: '12px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h2 className="title" style={{ fontSize: '18px', marginBottom: '4px' }}>
+                  {action === 'summary' ? '📝 요약 결과' : '📋 문제 생성 결과'}
+                </h2>
+                <div className="small" style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: '1.4' }}>
+                  결과를 확인하고 다운로드할 수 있습니다
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowResultPdfModal(false);
+                  setResultPdfFiles([]);
+                  setCurrentResultFileIndex(0);
+                  setChatMessages([]);
+                  setChatInput('');
+                  setSelectedPdfText([]);
+                  setIsChatLoading(false);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px', textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', wordBreak: 'break-all', padding: '0 12px' }}>
+                📄 {resultPdfFiles[currentResultFileIndex]?.filename}
+              </div>
+              {resultPdfFiles.length > 1 && (
+                <div className="small" style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px' }}>
+                  {currentResultFileIndex + 1} / {resultPdfFiles.length} 파일
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <PdfViewer
+                file={resultPdfFiles[currentResultFileIndex].file}
+                onAreasSelect={(areas) => setSelectedPdfText(areas)}
+                selectedAreas={selectedPdfText}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexShrink: 0 }}>
+              <button
+                className="btn secondary"
+                onClick={async () => {
+                  const current = resultPdfFiles[currentResultFileIndex];
+                  await downloadPdfFromUrl(current.filename, current.url);
+                }}
+                style={{ flex: 1, padding: '10px', fontSize: '13px' }}
+              >
+                📥 다운로드
+              </button>
+              {resultPdfFiles.length > 1 && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    if (currentResultFileIndex < resultPdfFiles.length - 1) {
+                      setCurrentResultFileIndex(prev => prev + 1);
+                    } else {
+                      setShowResultPdfModal(false);
+                      setResultPdfFiles([]);
+                      setCurrentResultFileIndex(0);
+                      setChatMessages([]);
+                      setChatInput('');
+                      setSelectedPdfText([]);
+                      setIsChatLoading(false);
+                    }
+                  }}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px' }}
+                >
+                  {currentResultFileIndex < resultPdfFiles.length - 1 ? '다음 파일 →' : '✓ 완료'}
+                </button>
+              )}
+              {resultPdfFiles.length === 1 && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setShowResultPdfModal(false);
+                    setResultPdfFiles([]);
+                    setCurrentResultFileIndex(0);
+                    setChatMessages([]);
+                    setChatInput('');
+                    setSelectedPdfText([]);
+                    setIsChatLoading(false);
+                  }}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px' }}
+                >
+                  ✓ 완료
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - Chat */}
+          <div
+            className="card"
+            style={{
+              padding: '24px',
+              flex: 1,
+              maxWidth: '50%',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              height: 'calc(100vh - 32px)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ marginBottom: '16px', flexShrink: 0 }}>
+              <h2 className="title" style={{ fontSize: '18px', marginBottom: '4px' }}>
+                💬 AI 교수와 대화
+              </h2>
+              <div className="small" style={{ color: 'var(--muted)', fontSize: '12px', lineHeight: '1.4' }}>
+                요약 내용에 대해 질문하세요
+              </div>
+              {selectedPdfText.length > 0 && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: 'rgba(255, 235, 59, 0.2)',
+                  border: '1px solid rgba(255, 193, 7, 0.5)',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    ✓ {selectedPdfText.length}개 영역 선택됨 (AI가 이 부분을 참고합니다)
+                  </div>
+                  <button
+                    onClick={() => setSelectedPdfText([])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      padding: '0 4px',
+                      lineHeight: 1
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Messages */}
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'auto',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                padding: '16px',
+                background: 'var(--bg-secondary)',
+                marginBottom: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}
+            >
+              {chatMessages.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  gap: '12px',
+                  color: 'var(--muted)'
+                }}>
+                  <div style={{ fontSize: '48px' }}>💭</div>
+                  <div style={{ fontSize: '14px' }}>아직 대화가 없습니다</div>
+                  <div style={{ fontSize: '12px', textAlign: 'center', lineHeight: '1.5' }}>
+                    요약 내용에 대해 궁금한 점을<br />아래에서 질문해보세요
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                        gap: '4px'
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '8px', paddingRight: '8px' }}>
+                        {msg.role === 'user' ? '나' : 'AI 교수'}
+                      </div>
+                      <div
+                        style={{
+                          background: msg.role === 'user' ? 'var(--primary)' : 'var(--panel)',
+                          color: msg.role === 'user' ? 'white' : 'var(--text)',
+                          padding: '10px 14px',
+                          borderRadius: '12px',
+                          maxWidth: '80%',
+                          fontSize: '13px',
+                          lineHeight: '1.5',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {msg.content || (msg.role === 'assistant' && isChatLoading ? '...' : '')}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatMessagesEndRef} />
+                </>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <textarea
+                className="input"
+                placeholder="💬 질문을 입력하세요..."
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChat();
+                  }
+                }}
+                disabled={isChatLoading}
+                style={{
+                  minHeight: '80px',
+                  resize: 'none',
+                  fontFamily: 'inherit',
+                  fontSize: '13px',
+                  flex: 1
+                }}
+              />
+              <button
+                className="btn"
+                onClick={handleSendChat}
+                disabled={!chatInput.trim() || isChatLoading}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  alignSelf: 'flex-end',
+                  height: '40px'
+                }}
+              >
+                {isChatLoading ? '⏳' : '전송'}
+              </button>
+            </div>
           </div>
         </div>
       )}
