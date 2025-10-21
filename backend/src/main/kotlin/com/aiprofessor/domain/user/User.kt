@@ -18,7 +18,7 @@ class User(
     val username: String,
     @Column(nullable = false)
     val password: String,
-    @Column(nullable = false)
+    @Column(unique = true, nullable = false)
     val email: String,
     @Column(nullable = false)
     var isActive: Boolean = true,
