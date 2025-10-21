@@ -1125,10 +1125,11 @@ export function MainScreen({ username, token }: { username: string; token: strin
                     if (currentResultFileIndex < resultPdfFiles.length - 1) {
                       setCurrentResultFileIndex(prev => prev + 1);
                     } else {
-                      // 요약인 경우 다운로드 후 닫기
+                      // 요약인 경우 모든 파일 다운로드 후 닫기
                       if (action === 'summary') {
-                        const current = resultPdfFiles[currentResultFileIndex];
-                        await downloadPdfFromUrl(current.filename, current.url);
+                        for (const pdfFile of resultPdfFiles) {
+                          await downloadPdfFromUrl(pdfFile.filename, pdfFile.url);
+                        }
                       }
                       setShowResultPdfModal(false);
                       setResultPdfFiles([]);
@@ -1150,8 +1151,7 @@ export function MainScreen({ username, token }: { username: string; token: strin
                   onClick={async () => {
                     // 요약인 경우 다운로드 후 닫기
                     if (action === 'summary') {
-                      const current = resultPdfFiles[currentResultFileIndex];
-                      await downloadPdfFromUrl(current.filename, current.url);
+                      await downloadPdfFromUrl(resultPdfFiles[0].filename, resultPdfFiles[0].url);
                     }
                     setShowResultPdfModal(false);
                     setResultPdfFiles([]);
