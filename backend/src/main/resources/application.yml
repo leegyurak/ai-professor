@@ -13,9 +13,9 @@ spring:
     async:
       request-timeout: 900000  # 10 minutes for long-running document processing
   mail:
-    host: smtp.gmail.com
+    host: smtp.zoho.com
     port: 587
-    username: test@gmail.com
+    username: test@zoho.com
     password: test-app-password
     properties:
       mail:
@@ -76,7 +76,7 @@ app:
 
 mail:
   from:
-    address: test@gmail.com
+    address: test@zoho.com
 
 ---
 spring:
@@ -87,10 +87,10 @@ spring:
     async:
       request-timeout: 600000  # 10 minutes for long-running document processing
   mail:
-    host: smtp.gmail.com
+    host: smtp.zoho.com
     port: 587
-    username: ${GMAIL_USERNAME:dev@gmail.com}
-    password: ${GMAIL_APP_PASSWORD:dev-password}
+    username: ${ZOHO_USERNAME:dev@zoho.com}
+    password: ${ZOHO_APP_PASSWORD:dev-password}
     properties:
       mail:
         smtp:
@@ -153,7 +153,7 @@ app:
 
 mail:
   from:
-    address: ${MAIL_FROM_ADDRESS:${GMAIL_USERNAME:dev@gmail.com}}
+    address: ${MAIL_FROM_ADDRESS:${ZOHO_USERNAME:dev@zoho.com}}
 
 ---
 spring:
@@ -164,10 +164,10 @@ spring:
     async:
       request-timeout: 600000  # 10 minutes for long-running document processing
   mail:
-    host: smtp.gmail.com
+    host: smtp.zoho.com
     port: 587
-    username: ${GMAIL_USERNAME}
-    password: ${GMAIL_APP_PASSWORD}
+    username: ${ZOHO_USERNAME}
+    password: ${ZOHO_APP_PASSWORD}
     properties:
       mail:
         smtp:
@@ -235,4 +235,4 @@ app:
 
 mail:
   from:
-    address: ${MAIL_FROM_ADDRESS:${GMAIL_USERNAME}}
+    address: ${MAIL_FROM_ADDRESS:${ZOHO_USERNAME}}

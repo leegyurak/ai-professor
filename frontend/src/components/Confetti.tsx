@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface ConfettiPiece {
   id: number;
@@ -9,6 +9,7 @@ interface ConfettiPiece {
 
 export function Confetti() {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
+  const styleRef = useRef<HTMLStyleElement | null>(null);
 
   useEffect(() => {
     const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
@@ -23,6 +24,43 @@ export function Confetti() {
       });
     }
     setPieces(newPieces);
+  }, []);
+
+  useEffect(() => {
+    // Add keyframes style to document head once
+    if (!styleRef.current) {
+      const style = document.createElement('style');
+      style.setAttribute('data-confetti', 'true');
+      style.textContent = `
+        @keyframes confettiFall {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) rotate(720deg);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      styleRef.current = style;
+    }
+
+    // Cleanup: remove style when component unmounts
+    return () => {
+      if (styleRef.current) {
+        try {
+          if (document.head.contains(styleRef.current)) {
+            document.head.removeChild(styleRef.current);
+          }
+        } catch (e) {
+          // Ignore errors if element was already removed
+          console.debug('Confetti style cleanup: element already removed');
+        }
+        styleRef.current = null;
+      }
+    };
   }, []);
 
   return (
@@ -52,18 +90,6 @@ export function Confetti() {
           }}
         />
       ))}
-      <style>{`
-        @keyframes confettiFall {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(100vh) rotate(720deg);
-            opacity: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 }

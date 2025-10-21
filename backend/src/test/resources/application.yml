@@ -24,7 +24,7 @@ spring:
     redis:
       timeout: 60000
   mail:
-    host: smtp.gmail.com
+    host: smtp.zoho.com
     port: 587
     username: test@test.com
     password: test-password

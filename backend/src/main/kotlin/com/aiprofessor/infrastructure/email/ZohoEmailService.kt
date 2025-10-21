@@ -8,13 +8,13 @@ import org.springframework.mail.javamail.MimeMessageHelper
 import org.springframework.stereotype.Service
 
 @Service
-class GmailEmailService(
+class ZohoEmailService(
     private val mailSender: JavaMailSender,
     @Value("\${mail.from.address:\${spring.mail.username}}") private val fromEmail: String,
     @Value("\${app.name:AI Professor}") private val appName: String,
     @Value("\${app.frontend-url:http://localhost:5173}") private val frontendUrl: String,
 ) : EmailService {
-    private val logger = LoggerFactory.getLogger(GmailEmailService::class.java)
+    private val logger = LoggerFactory.getLogger(ZohoEmailService::class.java)
 
     override fun sendVerificationEmail(
         toEmail: String,
@@ -208,9 +208,9 @@ class GmailEmailService(
             helper.setText(htmlContent, true)
 
             mailSender.send(message)
-            logger.info("Verification email sent to $toEmail via Gmail SMTP")
+            logger.info("Verification email sent to $toEmail via Zoho SMTP")
         } catch (e: Exception) {
-            logger.error("Failed to send verification email to $toEmail via Gmail SMTP", e)
+            logger.error("Failed to send verification email to $toEmail via Zoho SMTP", e)
             throw RuntimeException("이메일 전송에 실패했습니다", e)
         }
     }

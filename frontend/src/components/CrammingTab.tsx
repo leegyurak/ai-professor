@@ -479,7 +479,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
         {phase === 'quiz' && quizSubmitted && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
             <div className="center" style={{ flexDirection: 'column', gap: 'clamp(12px, 4vw, 16px)', padding: 'clamp(20px, 6vw, 30px) 0' }}>
-              {wrongCount >= 3 ? (
+              {wrongCount >= 5 ? (
                 <>
                   <div style={{ fontSize: 'clamp(48px, 14vw, 64px)' }}>😢</div>
                   <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 600 }}>
@@ -594,7 +594,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(10px, 3vw, 12px)' }}>
-              {wrongCount >= 3 ? (
+              {wrongCount >= 5 ? (
                 <button
                   className="btn"
                   onClick={() => {
