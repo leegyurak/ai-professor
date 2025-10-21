@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { MAX_PDF_SIZE } from '@/shared/config';
 import { generate, getHistory, logout } from './apiClient';
 import type { ActionType, HistoryItem } from './apiClient';
-import { fileToBase64, getPdfPageCount, downloadPdfFromUrl, fetchPdfAsFile } from './utils/pdfUtils';
+import { fileToBase64, getPdfPageCount, downloadPdfFromUrl, fetchPdfAsFile, extractTextFromPdf } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
 import { CrammingTab } from './components/CrammingTab';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -109,6 +109,8 @@ export function MainScreen({ username, token }: { username: string; token: strin
   const [chatInput, setChatInput] = useState('');
   const [selectedPdfText, setSelectedPdfText] = useState<string[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [summaryPdfText, setSummaryPdfText] = useState<string>('');
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom when new messages arrive
@@ -140,13 +142,20 @@ export function MainScreen({ username, token }: { username: string; token: strin
       // Use selected text from PDF, or empty string if no text selected
       const pdfContent = ''; // Could extract text from PDF file if needed
 
+      // 선택된 텍스트를 사용하기 전에 저장
+      const currentSelectedText = selectedPdfText;
+
+      // 질문 전송 후 PDF viewer의 선택 영역 해제
+      setSelectedPdfText([]);
+
       let accumulatedContent = '';
 
       for await (const chunk of chatWithPdfStream(
         userMessage,
         pdfContent,
-        selectedPdfText,
-        apiKey
+        currentSelectedText,
+        apiKey,
+        summaryPdfText
       )) {
         accumulatedContent += chunk;
 
@@ -345,34 +354,51 @@ export function MainScreen({ username, token }: { username: string; token: strin
         })
       );
 
-      // 다운로드 완료 상태로 전환
-      setDownloadComplete(true);
-
-      // 모든 파일을 File 객체로 변환
-      const pdfFiles: Array<{ file: File; filename: string; url: string }> = [];
-      for (const result of results) {
-        // 개발환경에서는 고정된 URL 사용
-        const pdfUrl = import.meta.env.DEV
-          ? 'https://cdn.devgyurak.com/datas/input/devgyurak_24ed1a3f-b57d-4ad2-9ef2-0af74e7d0e97.pdf'
-          : result.url;
-        const file = await fetchPdfAsFile(pdfUrl, result.filename);
-        pdfFiles.push({ file, filename: result.filename, url: pdfUrl });
-      }
-
       // Clear cache and reload history after generating (reset to first page)
       clearHistoryCache();
       if (currentTab === 'history') {
         await loadHistory(0);
       }
 
-      // 로딩 상태를 false로 변경하여 로딩 모달 제거
-      setLoading(false);
-      setDownloadComplete(false);
+      // 예상 문제의 경우 바로 새 탭에서 URL 열기 (File 변환 불필요)
+      if (action === 'quiz') {
+        // 다운로드 완료 상태로 전환 (모달 표시)
+        setDownloadComplete(true);
 
-      // 결과 PDF 파일들을 state에 저장하고 모달 표시
-      setResultPdfFiles(pdfFiles);
-      setCurrentResultFileIndex(0);
-      setShowResultPdfModal(true);
+        for (const result of results) {
+          console.log('[Quiz] Response URL from server:', result.url);
+          // response에서 받은 URL을 그대로 새 탭에서 열기
+          window.open(result.url, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        // 요약/벼락치기는 File 객체로 변환 필요 (PDF viewer에서 사용)
+        const pdfFiles: Array<{ file: File; filename: string; url: string }> = [];
+        for (const result of results) {
+          const pdfUrl = import.meta.env.DEV
+            ? 'https://cdn.devgyurak.com/datas/input/devgyurak_24ed1a3f-b57d-4ad2-9ef2-0af74e7d0e97.pdf'
+            : result.url;
+          const file = await fetchPdfAsFile(pdfUrl, result.filename);
+          pdfFiles.push({ file, filename: result.filename, url: pdfUrl });
+        }
+
+        // 요약 정리인 경우 PDF 텍스트 추출
+        if (action === 'summary' && pdfFiles.length > 0) {
+          try {
+            const extractedText = await extractTextFromPdf(pdfFiles[0].file);
+            setSummaryPdfText(extractedText);
+            console.log('[Summary] Extracted text from summary PDF:', extractedText.substring(0, 200) + '...');
+          } catch (error) {
+            console.error('[Summary] Failed to extract text from PDF:', error);
+          }
+        }
+
+        // 로딩 종료 및 결과 PDF 모달 표시
+        setLoading(false);
+        setDownloadComplete(false);
+        setResultPdfFiles(pdfFiles);
+        setCurrentResultFileIndex(0);
+        setShowResultPdfModal(true);
+      }
 
       // Clear input state
       setFiles([]);
@@ -921,10 +947,6 @@ export function MainScreen({ username, token }: { username: string; token: strin
                   }
                   setLoading(false);
                   setDownloadComplete(false);
-                  setFiles([]);
-                  setPrompt('');
-                  setSelectedAreasByFile(new Map());
-                  setFileBase64Map(new Map());
                 }}
                 style={{
                   position: 'absolute',
@@ -1027,13 +1049,19 @@ export function MainScreen({ username, token }: { username: string; token: strin
               </div>
               <button
                 onClick={() => {
-                  setShowResultPdfModal(false);
-                  setResultPdfFiles([]);
-                  setCurrentResultFileIndex(0);
-                  setChatMessages([]);
-                  setChatInput('');
-                  setSelectedPdfText([]);
-                  setIsChatLoading(false);
+                  // 요약인 경우 확인 모달 표시
+                  if (action === 'summary') {
+                    setShowCloseConfirmModal(true);
+                  } else {
+                    // 문제 생성은 바로 닫기
+                    setShowResultPdfModal(false);
+                    setResultPdfFiles([]);
+                    setCurrentResultFileIndex(0);
+                    setChatMessages([]);
+                    setChatInput('');
+                    setSelectedPdfText([]);
+                    setIsChatLoading(false);
+                  }
                 }}
                 style={{
                   background: 'none',
@@ -1077,23 +1105,31 @@ export function MainScreen({ username, token }: { username: string; token: strin
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexShrink: 0 }}>
-              <button
-                className="btn secondary"
-                onClick={async () => {
-                  const current = resultPdfFiles[currentResultFileIndex];
-                  await downloadPdfFromUrl(current.filename, current.url);
-                }}
-                style={{ flex: 1, padding: '10px', fontSize: '13px' }}
-              >
-                📥 다운로드
-              </button>
+              {/* 요약이 아닌 경우만 다운로드 버튼 표시 */}
+              {action !== 'summary' && (
+                <button
+                  className="btn secondary"
+                  onClick={async () => {
+                    const current = resultPdfFiles[currentResultFileIndex];
+                    await downloadPdfFromUrl(current.filename, current.url);
+                  }}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px' }}
+                >
+                  📥 다운로드
+                </button>
+              )}
               {resultPdfFiles.length > 1 && (
                 <button
                   className="btn"
-                  onClick={() => {
+                  onClick={async () => {
                     if (currentResultFileIndex < resultPdfFiles.length - 1) {
                       setCurrentResultFileIndex(prev => prev + 1);
                     } else {
+                      // 요약인 경우 다운로드 후 닫기
+                      if (action === 'summary') {
+                        const current = resultPdfFiles[currentResultFileIndex];
+                        await downloadPdfFromUrl(current.filename, current.url);
+                      }
                       setShowResultPdfModal(false);
                       setResultPdfFiles([]);
                       setCurrentResultFileIndex(0);
@@ -1111,7 +1147,12 @@ export function MainScreen({ username, token }: { username: string; token: strin
               {resultPdfFiles.length === 1 && (
                 <button
                   className="btn"
-                  onClick={() => {
+                  onClick={async () => {
+                    // 요약인 경우 다운로드 후 닫기
+                    if (action === 'summary') {
+                      const current = resultPdfFiles[currentResultFileIndex];
+                      await downloadPdfFromUrl(current.filename, current.url);
+                    }
                     setShowResultPdfModal(false);
                     setResultPdfFiles([]);
                     setCurrentResultFileIndex(0);
@@ -1231,15 +1272,17 @@ export function MainScreen({ username, token }: { username: string; token: strin
                       </div>
                       <div
                         style={{
-                          background: msg.role === 'user' ? 'var(--primary)' : 'var(--panel)',
-                          color: msg.role === 'user' ? 'white' : 'var(--text)',
+                          background: msg.role === 'user' ? '#e3f2fd' : 'var(--panel)',
+                          color: msg.role === 'user' ? '#000000' : 'var(--text)',
                           padding: '10px 14px',
                           borderRadius: '12px',
                           maxWidth: '80%',
                           fontSize: '13px',
                           lineHeight: '1.5',
                           whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
+                          wordBreak: 'break-word',
+                          boxShadow: msg.role === 'user' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.08)',
+                          border: msg.role === 'user' ? '1px solid #bbdefb' : '1px solid var(--border)'
                         }}
                       >
                         {msg.content || (msg.role === 'assistant' && isChatLoading ? '...' : '')}
@@ -1285,6 +1328,56 @@ export function MainScreen({ username, token }: { username: string; token: strin
                 }}
               >
                 {isChatLoading ? '⏳' : '전송'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Confirmation Modal */}
+      {showCloseConfirmModal && (
+        <div className="overlay" onClick={() => setShowCloseConfirmModal(false)}>
+          <div
+            className="card"
+            style={{
+              padding: '32px',
+              maxWidth: '400px',
+              width: '90%',
+              textAlign: 'center'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+            <h2 className="title" style={{ fontSize: '20px', marginBottom: '12px' }}>
+              다운로드하지 않고 넘어갈까요?
+            </h2>
+            <div className="small" style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.5', marginBottom: '24px' }}>
+              지금 다운로드하지 않아도<br />
+              작업 내역에서 확인할 수 있어요!
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn secondary"
+                onClick={() => setShowCloseConfirmModal(false)}
+                style={{ flex: 1, padding: '12px', fontSize: '14px' }}
+              >
+                취소
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setShowCloseConfirmModal(false);
+                  setShowResultPdfModal(false);
+                  setResultPdfFiles([]);
+                  setCurrentResultFileIndex(0);
+                  setChatMessages([]);
+                  setChatInput('');
+                  setSelectedPdfText([]);
+                  setIsChatLoading(false);
+                }}
+                style={{ flex: 1, padding: '12px', fontSize: '14px', background: '#f44336' }}
+              >
+                닫기
               </button>
             </div>
           </div>

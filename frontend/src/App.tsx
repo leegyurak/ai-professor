@@ -587,6 +587,13 @@ export default function App() {
     return <LandingPage onNavigateToLogin={navigateToLogin} />;
   }
 
-  // Default fallback - landing page
+  // Default fallback - Check if user has valid session
+  if (session) {
+    // If user has valid token, redirect to /main
+    window.history.replaceState({}, '', '/main');
+    return <MainScreen username={session.username} token={session.token} />;
+  }
+  // If no session, redirect to landing page
+  window.history.replaceState({}, '', '/');
   return <LandingPage onNavigateToLogin={navigateToLogin} />;
 }

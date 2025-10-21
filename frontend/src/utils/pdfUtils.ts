@@ -100,3 +100,31 @@ export async function fetchPdfAsFile(url: string, filename: string): Promise<Fil
     throw new Error('PDF 가져오기에 실패했습니다.');
   }
 }
+
+/**
+ * Extract text content from PDF file
+ */
+export async function extractTextFromPdf(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+
+    const textParts: string[] = [];
+
+    // Extract text from all pages
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      textParts.push(pageText);
+    }
+
+    return textParts.join('\n\n');
+  } catch (error) {
+    console.error('Failed to extract text from PDF:', error);
+    return '';
+  }
+}

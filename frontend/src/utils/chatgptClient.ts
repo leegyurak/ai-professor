@@ -174,6 +174,7 @@ export async function gradeQuiz(
  * @param pdfContent PDF content or context
  * @param selectedText Selected text from PDF
  * @param apiKey OpenAI API key
+ * @param summaryText Summary PDF text content
  * @param onChunk Callback for each chunk of response
  * @returns AsyncGenerator that yields response chunks
  */
@@ -182,9 +183,15 @@ export async function* chatWithPdfStream(
   pdfContent: string,
   selectedText: string[],
   apiKey: string,
+  summaryText?: string,
   onChunk?: (chunk: string) => void
 ): AsyncGenerator<string, void, unknown> {
-  const systemMessage = `당신은 학습 자료를 돕는 AI 교수입니다. 학생들이 PDF 내용에 대해 질문하면 친절하고 명확하게 답변해주세요.`;
+  let systemMessage = `당신은 학습 자료를 돕는 AI 교수입니다. 학생들이 PDF 내용에 대해 질문하면 친절하고 명확하게 답변해주세요.`;
+
+  // 요약 정리 PDF가 있으면 시스템 메시지에 포함
+  if (summaryText && summaryText.trim()) {
+    systemMessage += `\n\n다음은 학생이 학습한 자료의 요약 정리입니다. 이 내용을 참고하여 답변해주세요:\n\n${summaryText}`;
+  }
 
   let userContent = userMessage;
 

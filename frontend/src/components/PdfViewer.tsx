@@ -72,6 +72,14 @@ export function PdfViewer({ file, onAreasSelect, selectedAreas }: PdfViewerProps
     }
   }, [file]);
 
+  // Clear selections when selectedAreas becomes empty
+  useEffect(() => {
+    if (selectedAreas && selectedAreas.length === 0) {
+      setSelectionAreas([]);
+      setCurrentSelection(new Set());
+    }
+  }, [selectedAreas]);
+
   // Restore selection from selectedAreas prop when textItems load
   useEffect(() => {
     if (!selectedAreas || selectedAreas.length === 0 || textItems.length === 0) {
