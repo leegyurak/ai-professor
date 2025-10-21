@@ -71,13 +71,13 @@ export async function generateSpeedQuiz(
  * Grade quiz answers using exact string matching
  * @param quiz Quiz questions with correct answers
  * @param userAnswers User's answers
- * @param apiKey OpenAI API key (not used, kept for compatibility)
+ * @param _apiKey OpenAI API key (not used, kept for compatibility)
  * @returns Grading results
  */
 export async function gradeQuiz(
   quiz: QuizQuestion[],
   userAnswers: Record<number, string>,
-  apiKey: string
+  _apiKey: string
 ): Promise<GradeResponse> {
   const results: GradeResult[] = [];
   let wrongCount = 0;
