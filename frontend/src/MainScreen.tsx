@@ -1008,6 +1008,7 @@ export function MainScreen({ username, token }: { username: string; token: strin
           className="overlay"
           style={{
             display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
             gap: '16px',
             padding: '16px',
             alignItems: 'stretch'
@@ -1024,17 +1025,17 @@ export function MainScreen({ username, token }: { username: string; token: strin
             }
           }}
         >
-          {/* Left Panel - PDF Viewer */}
+          {/* Left/Top Panel - PDF Viewer */}
           <div
             className="card"
             style={{
               padding: '24px',
               flex: 1,
-              maxWidth: '50%',
+              maxWidth: isMobile ? '100%' : '50%',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
-              height: 'calc(100vh - 32px)'
+              height: isMobile ? '50vh' : 'calc(100vh - 32px)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1169,17 +1170,17 @@ export function MainScreen({ username, token }: { username: string; token: strin
             </div>
           </div>
 
-          {/* Right Panel - Chat */}
+          {/* Right/Bottom Panel - Chat */}
           <div
             className="card"
             style={{
               padding: '24px',
               flex: 1,
-              maxWidth: '50%',
+              maxWidth: isMobile ? '100%' : '50%',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
-              height: 'calc(100vh - 32px)'
+              height: isMobile ? '50vh' : 'calc(100vh - 32px)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
