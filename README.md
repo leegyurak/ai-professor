@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- 프로젝트 로고 -->
-<img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/36c33d91-032e-4b46-7b4c-ec1dd09d0b00/public" alt="Logo" width="120" height="120">
+<img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/36c33d91-032e-4b46-7b4c-ec1dd09d0b00/public" alt="Logo" width="150" height="150">
 
 # AI Professor
 
@@ -12,7 +12,7 @@
 [Features](#features) • [Tech Stack](#tech-stack) • [Architecture](#architecture) • [Roadmap](#roadmap)
 
 <!-- 프로젝트 스크린샷 -->
-<img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/aa211d55-c2d1-44e9-12b5-a20c9e638600/public" alt="Screenshot" width="800">
+<img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/aa211d55-c2d1-44e9-12b5-a20c9e638600/public" alt="Screenshot" width="700">
 
 </div>
 
@@ -22,11 +22,10 @@
 
 <!-- 데모 GIF 또는 비디오 -->
 <div align="center">
-  <img src="docs/images/demo.gif" alt="Demo" width="600">
+  <img src="docs/images/demo.gif" alt="Demo" width="700">
 </div>
 
 <br>
-
 AI Professor는 학생들의 효율적인 학습을 돕기 위해 개발된 웹 애플리케이션입니다. Claude AI의 강력한 문서 분석 능력을 활용하여 복잡한 교육 자료를 명확하고 체계적인 요약본으로 변환하고, 학습 내용을 점검할 수 있는 예상 문제를 자동으로 생성합니다. React와 Vite 기반으로 모든 브라우저에서 사용 가능합니다.
 
 ### Key Highlights
@@ -60,7 +59,7 @@ AI Professor는 학생들의 효율적인 학습을 돕기 위해 개발된 웹 
 ### 📝 문서 요약
 
 <div align="center">
-  <img src="docs/images/feature-summary.png" alt="Summary Feature" width="700">
+  <img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/c2fafe7f-78cc-4069-e856-ef3f3cae2600/public" alt="Summary Feature" width="700">
 </div>
 
 PDF 교육 자료를 업로드하면 Claude AI가 핵심 내용을 체계적으로 정리하여 학습 가이드를 생성합니다.
@@ -73,7 +72,7 @@ PDF 교육 자료를 업로드하면 Claude AI가 핵심 내용을 체계적으�
 ### 📋 예상 문제 생성
 
 <div align="center">
-  <img src="docs/images/feature-quiz.png" alt="Quiz Feature" width="700">
+  <img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/d7ae62d8-6050-4af0-3f89-0dab090dab00/public" alt="Quiz Feature" width="700">
 </div>
 
 업로드한 자료를 기반으로 시험 대비 예상 문제를 자동 생성합니다.
@@ -86,7 +85,7 @@ PDF 교육 자료를 업로드하면 Claude AI가 핵심 내용을 체계적으�
 ### ⚡ 벼락치기 모드
 
 <div align="center">
-  <img src="docs/images/feature-cramming.png" alt="Cramming Feature" width="700">
+  <img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/7b044ab4-faaa-4b86-7444-2d5c4a713a00/public" alt="Cramming Feature" width="700">
 </div>
 
 시험까지 남은 시간을 고려한 맞춤형 학습 자료 생성
@@ -99,7 +98,7 @@ PDF 교육 자료를 업로드하면 Claude AI가 핵심 내용을 체계적으�
 ### 💬 대화형 학습
 
 <div align="center">
-  <img src="docs/images/feature-chat.png" alt="Chat Feature" width="700">
+  <img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/d725584b-420f-40b9-a8b3-4333f431f700/public" alt="Chat Feature" width="700">
 </div>
 
 AI와 대화하며 문서 내용을 더 깊이 이해
@@ -112,26 +111,13 @@ AI와 대화하며 문서 내용을 더 깊이 이해
 ### 📚 작업 내역 관리
 
 <div align="center">
-  <img src="docs/images/feature-history.png" alt="History Feature" width="700">
+  <img src="https://imagedelivery.net/R9FsTLXBX6-6fZLUqzGBBg/c91f6d08-5bc5-44e9-d78b-1d56462b8a00/public" alt="History Feature" width="700">
 </div>
 
 - 이전에 생성한 요약 및 문제 확인
 - 언제든지 다시 다운로드 가능
 - 처리 유형별 필터링 지원
 - 페이지네이션으로 효율적인 탐색
-
-### 🔐 사용자 인증
-
-<div align="center">
-  <img src="docs/images/feature-auth.png" alt="Auth Feature" width="700">
-</div>
-
-- JWT 기반 보안 인증 (24시간 유효)
-- 이메일 인증 시스템 (Zoho SMTP)
-- 개인별 작업 내역 관리
-- Redis 기반 세션 관리
-- 디바이스별 로그인 추적 (MAC 주소, IP)
-- 사용자 계정 관리 (프로필, 삭제)
 
 ## Tech Stack
 
@@ -187,25 +173,21 @@ AI와 대화하며 문서 내용을 더 깊이 이해
 ## Architecture
 
 ### System Overview
-
-<!-- 아키텍처 다이어그램 이미지 -->
-<div align="center">
-  <img src="docs/images/architecture.png" alt="Architecture Diagram" width="800">
-</div>
-
-<br>
-
 ```
-┌─────────────────┐
-│   Web Browser   │
-│ (React + Vite)  │
-└────────┬────────┘
-         │ HTTP/REST
-         ▼
+┌─────────────────────────────────────────┐
+│         Web Browser (React + Vite)      │
+│                                         │
+│  ┌─────────────┐     ┌──────────────┐  │
+│  │   Backend   │     │   ChatGPT    │  │
+│  │     API     │     │     API      │  │
+│  └──────┬──────┘     └──────────────┘  │
+└─────────┼──────────────────────────────┘
+          │ HTTP/REST
+          ▼
 ┌─────────────────┐      ┌──────────────┐
 │  Spring Boot    │─────▶│  Claude API  │
-│    Backend      │      └──────────────┘
-└────────┬────────┘
+│    Backend      │      │  (Haiku 4.5) │
+└────────┬────────┘      └──────────────┘
          │
     ┌────┴────┐
     ▼         ▼
