@@ -275,3 +275,95 @@ export async function verifyEmail(token: string): Promise<VerifyEmailResult> {
     method: 'GET'
   });
 }
+
+// Interview APIs
+export interface CreateInterviewParams {
+  interviewDate: string; // LocalDate in YYYY-MM-DD format
+  interviewType: string; // 직무명
+  announcementUrl: string; // 채용공고 URL
+}
+
+export interface InterviewResponse {
+  id: number;
+  userId: number;
+  interviewDate: string;
+  interviewType: string;
+  announcementUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createInterview(params: CreateInterviewParams, token: string): Promise<InterviewResponse> {
+  return http<InterviewResponse>('/api/interviews', {
+    method: 'POST',
+    body: JSON.stringify(params),
+    authToken: token
+  });
+}
+
+export async function getInterviews(token: string): Promise<InterviewResponse[]> {
+  return http<InterviewResponse[]>('/api/interviews', {
+    method: 'GET',
+    authToken: token
+  });
+}
+
+// Mock Interview APIs
+export interface CreateMockInterviewParams {
+  userInterviewId: number;
+  resumeFile: string; // Base64 encoded PDF
+}
+
+export interface MockInterviewResponse {
+  mockInterviewId: number;
+  questionMarkdown: string; // Markdown 형식의 면접 질문
+}
+
+export interface MockInterviewDetailResponse {
+  id: number;
+  userId: number;
+  userInterviewId: number;
+  resumeFilePath: string;
+  questionFilePath: string;
+  gradingFilePath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function createMockInterview(params: CreateMockInterviewParams, token: string): Promise<MockInterviewResponse> {
+  return http<MockInterviewResponse>('/api/interviews/mock', {
+    method: 'POST',
+    body: JSON.stringify(params),
+    authToken: token
+  });
+}
+
+export async function getMockInterviews(token: string): Promise<MockInterviewDetailResponse[]> {
+  return http<MockInterviewDetailResponse[]>('/api/interviews/mock', {
+    method: 'GET',
+    authToken: token
+  });
+}
+
+export async function getMockInterviewsByInterview(userInterviewId: number, token: string): Promise<MockInterviewDetailResponse[]> {
+  return http<MockInterviewDetailResponse[]>(`/api/interviews/mock/by-interview/${userInterviewId}`, {
+    method: 'GET',
+    authToken: token
+  });
+}
+
+export interface GradingParams {
+  answers: string; // 면접 답변 텍스트
+}
+
+export interface GradingResponse {
+  gradingMarkdown: string; // Markdown 형식의 평가 결과
+}
+
+export async function gradeMockInterview(mockInterviewId: number, params: GradingParams, token: string): Promise<GradingResponse> {
+  return http<GradingResponse>(`/api/interviews/mock/${mockInterviewId}/grading`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+    authToken: token
+  });
+}

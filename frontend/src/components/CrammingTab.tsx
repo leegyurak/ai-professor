@@ -56,6 +56,7 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
   const [gradeResults, setGradeResults] = useState<GradeResult[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [drag, setDrag] = useState(false);
 
   const LOADING_MESSAGES = isMobile ? CRAMMING_LOADING_MESSAGES_MOBILE : CRAMMING_LOADING_MESSAGES_DESKTOP;
 
@@ -188,15 +189,42 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
     <>
       {showConfetti && <Confetti />}
 
-      <div className="card" style={{ padding: 'clamp(16px, 5vw, 20px)', display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', paddingBottom: 'clamp(12px, 4vw, 16px)', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 'clamp(40px, 10vw, 56px)', marginBottom: 'clamp(8px, 2.5vw, 12px)' }}>⚡</div>
-          <h2 className="title" style={{ fontSize: 'clamp(18px, 5vw, 22px)', marginBottom: 'clamp(6px, 2vw, 8px)' }}>벼락치기 모드</h2>
-          <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(12px, 3.2vw, 13px)', lineHeight: '1.5' }}>
-            시험 직전! AI가 핵심만 빠르게 정리해드립니다
-          </div>
+      {/* Welcome Banner (Desktop Only) */}
+      {!isMobile && phase === 'upload' && (
+        <div style={{
+          padding: '24px 32px',
+          background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 87, 34, 0.1) 100%)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          marginBottom: '20px'
+        }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '32px' }}>⚡</span>
+            벼락치기 모드
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+            시험 직전! AI가 시간에 맞춰 핵심만 빠르게 정리해드립니다. 효율적인 학습으로 시험을 완벽하게 준비하세요.
+          </p>
         </div>
+      )}
+
+      <div className="card" style={{
+        padding: isMobile ? '16px' : '28px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isMobile ? '16px' : '24px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+      }}>
+        {/* Header (Mobile) */}
+        {isMobile && (
+          <div style={{ textAlign: 'center', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '56px', marginBottom: '12px' }}>⚡</div>
+            <h2 className="title" style={{ fontSize: '22px', marginBottom: '8px' }}>벼락치기 모드</h2>
+            <div className="small" style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: '1.5' }}>
+              시험 직전! AI가 핵심만 빠르게 정리해드립니다
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="alert error">
@@ -207,15 +235,37 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
 
         {/* Upload Phase */}
         {phase === 'upload' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr',
+            gap: isMobile ? '16px' : '20px'
+          }}>
             <div style={{
-              padding: 'clamp(16px, 5vw, 20px)',
+              padding: isMobile ? '16px' : '24px',
               background: 'var(--bg-secondary)',
-              borderRadius: 4,
+              borderRadius: '8px',
               border: '1px solid var(--border)'
             }}>
-              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(10px, 3vw, 12px)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 'clamp(18px, 5vw, 20px)' }}>📚</span>
+              <div style={{
+                fontSize: isMobile ? '14px' : '16px',
+                fontWeight: 600,
+                marginBottom: isMobile ? '12px' : '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{
+                  fontSize: isMobile ? '20px' : '24px',
+                  background: 'rgba(255, 193, 7, 0.2)',
+                  borderRadius: '50%',
+                  width: isMobile ? '32px' : '40px',
+                  height: isMobile ? '32px' : '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  📚
+                </span>
                 <span>STEP 1. 교재 업로드</span>
               </div>
               <input
@@ -228,22 +278,30 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
                 style={{ display: 'none' }}
                 id="cramming-file-input"
               />
-              <label
-                htmlFor="cramming-file-input"
-                className="btn"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  fontSize: 'clamp(13px, 3.5vw, 14px)',
-                  padding: 'clamp(10px, 3vw, 12px) clamp(16px, 5vw, 20px)',
-                  width: file ? 'auto' : '100%'
+              <div
+                className={`dropzone ${drag ? 'drag' : ''}`}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDrag(false);
+                  const droppedFile = e.dataTransfer.files[0];
+                  if (droppedFile) handleFileSelect(droppedFile);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDrag(true);
+                }}
+                onDragLeave={() => setDrag(false)}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDrag(true);
                 }}
               >
-                📁 {file ? '파일 변경' : 'PDF 파일 선택'}
-              </label>
+                <div style={{ fontSize: 'clamp(24px, 8vw, 32px)', marginBottom: 'clamp(6px, 2vw, 8px)' }}>📄</div>
+                <div style={{ fontSize: 'clamp(12px, 3.2vw, 14px)', lineHeight: '1.5', marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>
+                  PDF 파일을 드래그하거나 선택하세요
+                </div>
+                <label className="btn ghost" htmlFor="cramming-file-input" style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>📁 파일 선택</label>
+              </div>
               {file && (
                 <div style={{
                   marginTop: 'clamp(12px, 4vw, 14px)',
@@ -262,13 +320,31 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
             </div>
 
             <div style={{
-              padding: 'clamp(16px, 5vw, 20px)',
+              padding: isMobile ? '16px' : '24px',
               background: 'var(--bg-secondary)',
-              borderRadius: 4,
+              borderRadius: '8px',
               border: '1px solid var(--border)'
             }}>
-              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(10px, 3vw, 12px)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 'clamp(18px, 5vw, 20px)' }}>⏰</span>
+              <div style={{
+                fontSize: isMobile ? '14px' : '16px',
+                fontWeight: 600,
+                marginBottom: isMobile ? '12px' : '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{
+                  fontSize: isMobile ? '20px' : '24px',
+                  background: 'rgba(33, 150, 243, 0.2)',
+                  borderRadius: '50%',
+                  width: isMobile ? '32px' : '40px',
+                  height: isMobile ? '32px' : '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  ⏰
+                </span>
                 <span>STEP 2. 시험까지 남은 시간</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2.5vw, 10px)' }}>
@@ -294,13 +370,31 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
             </div>
 
             <div style={{
-              padding: 'clamp(16px, 5vw, 20px)',
+              padding: isMobile ? '16px' : '24px',
               background: 'var(--bg-secondary)',
-              borderRadius: 4,
+              borderRadius: '8px',
               border: '1px solid var(--border)'
             }}>
-              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(6px, 2vw, 8px)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 'clamp(18px, 5vw, 20px)' }}>📝</span>
+              <div style={{
+                fontSize: isMobile ? '14px' : '16px',
+                fontWeight: 600,
+                marginBottom: isMobile ? '8px' : '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{
+                  fontSize: isMobile ? '20px' : '24px',
+                  background: 'rgba(76, 175, 80, 0.2)',
+                  borderRadius: '50%',
+                  width: isMobile ? '32px' : '40px',
+                  height: isMobile ? '32px' : '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  📝
+                </span>
                 <span>STEP 3. 스피드 퀴즈로 테스트</span>
               </div>
               <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(11px, 3vw, 12px)', lineHeight: '1.5' }}>
@@ -314,9 +408,11 @@ export function CrammingTab({ token, username, isMobile }: CrammingTabProps) {
               disabled={!file || !hoursUntilExam || loading}
               style={{
                 width: '100%',
-                padding: 'clamp(14px, 4.5vw, 16px)',
-                fontSize: 'clamp(14px, 4vw, 16px)',
-                fontWeight: 600
+                padding: isMobile ? '14px' : '18px',
+                fontSize: isMobile ? '15px' : '17px',
+                fontWeight: 600,
+                borderRadius: '8px',
+                boxShadow: (file && hoursUntilExam && !loading) ? '0 4px 12px rgba(255, 193, 7, 0.3)' : 'none'
               }}
             >
               {loading ? '⏳ 생성 중...' : '⚡ 벼락치기 자료 생성하기'}

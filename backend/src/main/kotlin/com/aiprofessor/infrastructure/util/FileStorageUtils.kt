@@ -11,16 +11,19 @@ import java.util.UUID
 class FileStorageUtils(
     @Value("\${app.base-url}")
     private val baseUrl: String,
+    private val pdfUtils: PdfUtils,
 ) {
     companion object {
         private const val INPUT_DIR = "datas/input"
         private const val OUTPUT_DIR = "datas/output"
+        private const val INTERVIEW_DIR = "datas/interview"
     }
 
     init {
         // Create directories if they don't exist
         createDirectoryIfNotExists(INPUT_DIR)
         createDirectoryIfNotExists(OUTPUT_DIR)
+        createDirectoryIfNotExists(INTERVIEW_DIR)
     }
 
     private fun createDirectoryIfNotExists(dir: String) {
@@ -112,5 +115,43 @@ class FileStorageUtils(
     fun fileExists(filePath: String): Boolean {
         val path = Paths.get(filePath)
         return Files.exists(path)
+    }
+
+    /**
+     * Save interview file (resume, questions, grading)
+     * @param userId User ID
+     * @param fileType Type of file (resume, questions, grading)
+     * @param fileBytes File content
+     * @return File path
+     */
+    fun saveInterviewFile(
+        userId: Long,
+        fileType: String,
+        fileBytes: ByteArray,
+    ): String {
+        val uuid = UUID.randomUUID().toString()
+        val extension = if (fileType == "resume") "pdf" else "pdf"
+        val fileName = "${userId}_${fileType}_$uuid.$extension"
+        val filePath = "$INTERVIEW_DIR/$fileName"
+        val path = Paths.get(filePath)
+
+        Files.write(path, fileBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+        return filePath
+    }
+
+    /**
+     * Read text file content
+     * @param filePath File path to read
+     * @return File content as string
+     */
+    fun readTextFile(filePath: String): String {
+        val path = Paths.get(filePath)
+        return if (filePath.endsWith(".pdf")) {
+            // If it's a PDF, extract text from it
+            val pdfBytes = Files.readAllBytes(path)
+            pdfUtils.extractTextFromPdf(pdfBytes)
+        } else {
+            Files.readString(path)
+        }
     }
 }

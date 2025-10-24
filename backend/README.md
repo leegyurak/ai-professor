@@ -23,18 +23,45 @@ Kotlin + Spring Boot 기반의 교육 자료 요약 및 예상 문제 생성 백
 
 2. **문서 처리**
    - PDF 파일을 Base64로 입력받아 처리
-   - 최대 30MB 크기 제한
+   - 최대 100MB 크기 제한
    - Claude Sonnet 4.5 API를 통한 자료 요약
    - Claude Sonnet 4.5 API를 통한 예상 문제 생성
    - Markdown을 PDF로 변환하여 결과 반환 (Noto Sans KR 웹폰트 사용)
    - 문서 처리 내역 조회 (페이지네이션 및 필터링 지원)
 
-3. **API 엔드포인트**
+3. **면접 준비 시스템**
+   - 면접 일정 관리 (CRUD)
+   - 이력서 PDF와 채용 공고 URL 기반 모의 면접 질문 생성 (10개)
+   - Claude Sonnet 4.5를 활용한 맞춤형 면접 질문 생성
+   - 5가지 평가 기준(답변의 구체성, 기술적 깊이, 문제 해결 능력, 의사소통 능력, 직무 적합성)으로 면접 답변 채점
+   - 질문별 상세 피드백 (잘한 점, 아쉬운 점, 모범 답변 요소, 개선 제안)
+   - 5단계 등급 시스템 (합격, 다소 애매한 합격, 보류, 다소 애매한 불합격, 불합격)
+
+4. **API 엔드포인트**
+
+   **인증**
    - `POST /api/auth/login` - 로그인
    - `POST /api/auth/logout` - 로그아웃
+
+   **문서 처리**
    - `POST /api/documents/summary` - 자료 요약
    - `POST /api/documents/exam-questions` - 예상 문제 생성
    - `GET /api/documents/history` - 문서 처리 내역 조회
+
+   **면접 관리**
+   - `POST /api/interviews` - 면접 일정 생성
+   - `GET /api/interviews` - 내 면접 일정 목록 조회
+   - `GET /api/interviews/{id}` - 면접 일정 상세 조회
+   - `PUT /api/interviews/{id}` - 면접 일정 수정
+   - `DELETE /api/interviews/{id}` - 면접 일정 삭제
+
+   **모의 면접**
+   - `POST /api/interviews/mock` - 모의 면접 질문 생성
+   - `GET /api/interviews/mock` - 내 모의 면접 목록 조회
+   - `GET /api/interviews/mock/{id}` - 모의 면접 상세 조회
+   - `GET /api/interviews/mock/by-interview/{userInterviewId}` - 특정 면접 일정의 모의 면접 목록
+   - `POST /api/interviews/mock/{id}/grading` - 면접 답변 채점
+   - `DELETE /api/interviews/mock/{id}` - 모의 면접 삭제
 
 ## 프로젝트 구조
 
@@ -46,10 +73,12 @@ backend/
 │   │   │   ├── domain/           # 도메인 계층
 │   │   │   │   ├── user/
 │   │   │   │   ├── session/
-│   │   │   │   └── document/
+│   │   │   │   ├── document/
+│   │   │   │   └── interview/
 │   │   │   ├── application/      # 애플리케이션 계층
 │   │   │   │   ├── auth/
-│   │   │   │   └── document/
+│   │   │   │   ├── document/
+│   │   │   │   └── interview/
 │   │   │   ├── infrastructure/   # 인프라 계층
 │   │   │   │   ├── user/
 │   │   │   │   ├── session/
@@ -59,7 +88,8 @@ backend/
 │   │   │   │   └── security/
 │   │   │   └── presentation/     # 프레젠테이션 계층
 │   │   │       ├── auth/
-│   │   │       └── document/
+│   │   │       ├── document/
+│   │   │       └── interview/
 │   │   └── resources/
 │   │       ├── application.yml
 │   │       ├── db/migration/     # Flyway 마이그레이션
@@ -259,6 +289,76 @@ curl -X GET "http://localhost:8080/api/documents/history?processingType=EXAM_QUE
 }
 ```
 
+### 면접 일정 생성
+
+```bash
+curl -X POST http://localhost:8080/api/interviews \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "interviewDate": "2025-11-15",
+    "interviewType": "Backend Developer",
+    "announcementUrl": "https://example.com/jobs/backend-developer"
+  }'
+```
+
+### 모의 면접 질문 생성
+
+```bash
+curl -X POST http://localhost:8080/api/interviews/mock \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "userInterviewId": 1,
+    "resumeFile": "BASE64_ENCODED_RESUME_PDF"
+  }'
+```
+
+**응답 예시:**
+```json
+{
+  "mockInterviewId": 1,
+  "questionMarkdown": "# 면접 예상 질문 및 모범 답안 가이드\n\n## Q1. 자기소개...\n..."
+}
+```
+
+### 면접 답변 채점
+
+```bash
+curl -X POST http://localhost:8080/api/interviews/mock/1/grading \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "answers": "Q1: 저는 3년차 백엔드 개발자입니다...\nQ2: Spring Boot를 활용한 경험..."
+  }'
+```
+
+**응답 예시:**
+```json
+{
+  "gradingMarkdown": "# 면접 답변 종합 평가 보고서\n\n## 📊 최종 채점 결과\n**등급**: 다소 애매한 합격\n**총점**: 82/100점\n\n## 📝 질문별 상세 평가\n..."
+}
+```
+
+### 면접 일정 목록 조회
+
+```bash
+curl -X GET http://localhost:8080/api/interviews \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### 모의 면접 목록 조회
+
+```bash
+# 내 모든 모의 면접
+curl -X GET http://localhost:8080/api/interviews/mock \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 특정 면접 일정의 모의 면접 목록
+curl -X GET http://localhost:8080/api/interviews/mock/by-interview/1 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
 ## 데이터베이스 마이그레이션 (Flyway)
 
 프로젝트는 Flyway를 사용하여 데이터베이스 스키마를 버전 관리합니다.
@@ -266,6 +366,19 @@ curl -X GET "http://localhost:8080/api/documents/history?processingType=EXAM_QUE
 ### 마이그레이션 파일 위치
 
 마이그레이션 스크립트는 `src/main/resources/db/migration/` 디렉토리에 위치합니다.
+
+### 현재 마이그레이션 목록
+
+- `V1` - users 테이블 생성 (기본 사용자 정보)
+- `V2` - document_history 테이블 생성 (문서 처리 내역)
+- `V3` - 파일 스토리지 마이그레이션 (Base64 → 파일 시스템)
+- `V4` - Base64 컬럼 제거
+- `V5` - users 테이블에 is_active 컬럼 추가
+- `V6` - users 테이블의 email에 unique 제약조건 추가
+- `V7` - user_schedules 테이블 생성 (학습 일정 관리)
+- `V8` - schedule_document 테이블 생성 (일정별 문서 저장)
+- `V9` - user_interviews 테이블 생성 (면접 일정 관리)
+- `V10` - user_mock_interviews 테이블 생성 (모의 면접 데이터)
 
 ### 마이그레이션 파일 명명 규칙
 

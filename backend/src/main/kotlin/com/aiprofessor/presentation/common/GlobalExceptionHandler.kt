@@ -8,16 +8,22 @@ import com.aiprofessor.domain.exception.ClaudeApiTimeoutException
 import com.aiprofessor.domain.exception.DuplicateUsernameException
 import com.aiprofessor.domain.exception.EmptyContentException
 import com.aiprofessor.domain.exception.ExpiredTokenException
+import com.aiprofessor.domain.exception.GradingNotAvailableException
+import com.aiprofessor.domain.exception.InterviewNotFoundException
+import com.aiprofessor.domain.exception.InvalidAnnouncementUrlException
 import com.aiprofessor.domain.exception.InvalidCredentialsException
 import com.aiprofessor.domain.exception.InvalidInputException
 import com.aiprofessor.domain.exception.InvalidPdfException
 import com.aiprofessor.domain.exception.InvalidTokenException
 import com.aiprofessor.domain.exception.MarkdownConversionException
 import com.aiprofessor.domain.exception.MaxSessionsExceededException
+import com.aiprofessor.domain.exception.MockInterviewNotFoundException
 import com.aiprofessor.domain.exception.PdfProcessingException
 import com.aiprofessor.domain.exception.PdfSizeExceededException
+import com.aiprofessor.domain.exception.ResumeProcessingException
 import com.aiprofessor.domain.exception.SessionNotFoundException
 import com.aiprofessor.domain.exception.UnauthorizedException
+import com.aiprofessor.domain.exception.UnauthorizedInterviewAccessException
 import com.aiprofessor.domain.exception.UserNotActiveException
 import com.aiprofessor.domain.exception.UserNotFoundException
 import jakarta.servlet.http.HttpServletRequest
@@ -414,6 +420,99 @@ class GlobalExceptionHandler {
                     status = HttpStatus.BAD_REQUEST.value(),
                     error = "Bad Request",
                     message = "잘못된 파라미터 타입입니다: ${ex.name}",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    /**
+     * Interview Exceptions
+     */
+    @ExceptionHandler(InterviewNotFoundException::class, MockInterviewNotFoundException::class)
+    fun handleInterviewNotFound(
+        ex: RuntimeException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("Interview not found: {}", ex.message)
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.NOT_FOUND.value(),
+                    error = "Not Found",
+                    message = ex.message ?: "Interview not found",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    @ExceptionHandler(UnauthorizedInterviewAccessException::class)
+    fun handleUnauthorizedInterviewAccess(
+        ex: UnauthorizedInterviewAccessException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("Unauthorized interview access: {}", ex.message)
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.FORBIDDEN.value(),
+                    error = "Forbidden",
+                    message = ex.message ?: "Unauthorized access to interview",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    @ExceptionHandler(InvalidAnnouncementUrlException::class)
+    fun handleInvalidAnnouncementUrl(
+        ex: InvalidAnnouncementUrlException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("Invalid announcement URL: {}", ex.message)
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.BAD_REQUEST.value(),
+                    error = "Bad Request",
+                    message = ex.message ?: "Invalid announcement URL",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    @ExceptionHandler(ResumeProcessingException::class)
+    fun handleResumeProcessing(
+        ex: ResumeProcessingException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.error("Resume processing error: {}", ex.message, ex)
+        return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    error = "Internal Server Error",
+                    message = ex.message ?: "Error processing resume",
+                    path = request.requestURI,
+                ),
+            )
+    }
+
+    @ExceptionHandler(GradingNotAvailableException::class)
+    fun handleGradingNotAvailable(
+        ex: GradingNotAvailableException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logger.warn("Grading not available: {}", ex.message)
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.BAD_REQUEST.value(),
+                    error = "Bad Request",
+                    message = ex.message ?: "Grading not available for this interview",
                     path = request.requestURI,
                 ),
             )

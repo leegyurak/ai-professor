@@ -1,5 +1,6 @@
 package com.aiprofessor.infrastructure.util
 
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -15,12 +16,13 @@ class FileStorageUtilsTest {
 
     private lateinit var fileStorageUtils: FileStorageUtils
     private val baseUrl = "https://test.example.com"
+    private val pdfUtils = mockk<PdfUtils>(relaxed = true)
 
     @BeforeEach
     fun setUp() {
         // Change working directory to temp for testing
         System.setProperty("user.dir", tempDir.toString())
-        fileStorageUtils = FileStorageUtils(baseUrl)
+        fileStorageUtils = FileStorageUtils(baseUrl, pdfUtils)
     }
 
     @AfterEach
@@ -107,7 +109,7 @@ class FileStorageUtilsTest {
     @Test
     fun `filePathToUrl should handle trailing slash in base URL`() {
         // given
-        val fileStorageWithTrailingSlash = FileStorageUtils("https://test.example.com/")
+        val fileStorageWithTrailingSlash = FileStorageUtils("https://test.example.com/", pdfUtils)
         val filePath = "datas/input/testuser_123-456.pdf"
 
         // when

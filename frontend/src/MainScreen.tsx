@@ -5,6 +5,7 @@ import type { ActionType, HistoryItem } from './apiClient';
 import { fileToBase64, getPdfPageCount, downloadPdfFromUrl, fetchPdfAsFile, extractTextFromPdf } from './utils/pdfUtils';
 import { PdfViewer } from './components/PdfViewer';
 import { CrammingTab } from './components/CrammingTab';
+import { InterviewTab } from './components/InterviewTab';
 import { UserProfileModal } from './components/UserProfileModal';
 import { chatWithPdfStream } from './utils/chatgptClient';
 
@@ -89,7 +90,7 @@ export function MainScreen({ username, token }: { username: string; token: strin
   const [error, setError] = useState<string | null>(null);
   const [serverHistory, setServerHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'generate' | 'history' | 'cramming'>('generate');
+  const [currentTab, setCurrentTab] = useState<'generate' | 'history' | 'cramming' | 'interview'>('generate');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [historyPage, setHistoryPage] = useState(0);
@@ -428,93 +429,308 @@ export function MainScreen({ username, token }: { username: string; token: strin
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
       {/* Header */}
-      <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px)', gap: 'clamp(8px, 2vw, 12px)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1.5vw, 6px)', minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 'clamp(18px, 5vw, 20px)', flexShrink: 0 }}>🎓</div>
+      <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 }}>
+        <div style={{
+          maxWidth: '1800px',
+          margin: '0 auto',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: isMobile ? '12px 16px' : '16px 32px',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px', minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: isMobile ? '24px' : '32px', flexShrink: 0 }}>🎓</div>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <h1 className="title" style={{ fontSize: 'clamp(14px, 4vw, 16px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI Professor</h1>
-              <div className="small" style={{ color: 'var(--muted)', marginTop: 1, fontSize: 'clamp(10px, 2.5vw, 11px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>안녕하세요, <b>{username}</b>님 👋</div>
+              <h1 className="title" style={{ fontSize: isMobile ? '16px' : '20px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI Professor</h1>
+              <div className="small" style={{ color: 'var(--muted)', marginTop: 2, fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                안녕하세요, <b>{username}</b>님 👋
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 2.5vw, 12px)', flexShrink: 0 }}>
-            <button onClick={() => setShowProfileModal(true)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 'clamp(10px, 2.5vw, 11px)', fontFamily: 'inherit', padding: 'clamp(4px, 1.5vw, 5px) clamp(6px, 2vw, 8px)', transition: 'color 0.2s ease', whiteSpace: 'nowrap' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>👤 내 정보</button>
-            <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 'clamp(10px, 2.5vw, 11px)', fontFamily: 'inherit', padding: 'clamp(4px, 1.5vw, 5px) clamp(6px, 2vw, 8px)', transition: 'color 0.2s ease', whiteSpace: 'nowrap' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>🚪 로그아웃</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px', flexShrink: 0 }}>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontSize: isMobile ? '11px' : '13px',
+                fontFamily: 'inherit',
+                padding: isMobile ? '6px 10px' : '8px 14px',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                borderRadius: '6px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text)';
+                e.currentTarget.style.background = 'var(--bg-secondary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              👤 내 정보
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontSize: isMobile ? '11px' : '13px',
+                fontFamily: 'inherit',
+                padding: isMobile ? '6px 10px' : '8px 14px',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                borderRadius: '6px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text)';
+                e.currentTarget.style.background = 'var(--bg-secondary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              🚪 로그아웃
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ background: 'var(--panel)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 clamp(8px, 2.5vw, 12px)', display: 'flex', gap: 0 }}>
-          <button
-            onClick={() => setCurrentTab('generate')}
-            style={{
-              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
-              border: 'none',
-              borderBottom: currentTab === 'generate' ? '2px solid var(--text)' : '2px solid transparent',
-              background: 'transparent',
-              color: currentTab === 'generate' ? 'var(--text)' : 'var(--muted)',
-              cursor: 'pointer',
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: currentTab === 'generate' ? 600 : 400,
-              transition: 'all 0.2s ease',
-              fontFamily: 'inherit',
-              flex: 1
-            }}
-          >
-            ✨ 생성하기
-          </button>
-          <button
-            onClick={() => setCurrentTab('cramming')}
-            style={{
-              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
-              border: 'none',
-              borderBottom: currentTab === 'cramming' ? '2px solid var(--text)' : '2px solid transparent',
-              background: 'transparent',
-              color: currentTab === 'cramming' ? 'var(--text)' : 'var(--muted)',
-              cursor: 'pointer',
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: currentTab === 'cramming' ? 600 : 400,
-              transition: 'all 0.2s ease',
-              fontFamily: 'inherit',
-              flex: 1
-            }}
-          >
-            ⚡ 벼락치기
-          </button>
-          <button
-            onClick={() => setCurrentTab('history')}
-            style={{
-              padding: 'clamp(8px, 2.5vw, 10px) clamp(8px, 3vw, 12px)',
-              border: 'none',
-              borderBottom: currentTab === 'history' ? '2px solid var(--text)' : '2px solid transparent',
-              background: 'transparent',
-              color: currentTab === 'history' ? 'var(--text)' : 'var(--muted)',
-              cursor: 'pointer',
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: currentTab === 'history' ? 600 : 400,
-              transition: 'all 0.2s ease',
-              fontFamily: 'inherit',
-              flex: 1
-            }}
-          >
-            📚 작업 내역
-          </button>
-        </div>
-      </div>
+      {/* Main Layout: Sidebar + Content + Footer */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Sidebar Navigation (Desktop/Tablet) */}
+        {!isMobile && (
+          <div style={{
+            width: '260px',
+            background: 'var(--panel)',
+            borderRight: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0
+          }}>
+            {/* Sidebar Content */}
+            <div style={{ padding: '24px 16px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ marginBottom: '16px', paddingLeft: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                메뉴
+              </div>
+            </div>
+            {[
+              { id: 'generate' as const, icon: '✨', label: '생성하기', desc: 'PDF 요약 및 문제 생성' },
+              { id: 'cramming' as const, icon: '⚡', label: '벼락치기', desc: '시험 직전 핵심 정리' },
+              { id: 'interview' as const, icon: '💼', label: '면접 준비', desc: 'AI 모의 면접 연습' },
+              { id: 'history' as const, icon: '📚', label: '작업 내역', desc: '지난 작업 확인' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setCurrentTab(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '14px 12px',
+                  marginBottom: '8px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: currentTab === tab.id ? 'var(--bg-secondary)' : 'transparent',
+                  color: currentTab === tab.id ? 'var(--text)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: currentTab === tab.id ? 600 : 400,
+                  transition: 'all 0.2s ease',
+                  fontFamily: 'inherit',
+                  textAlign: 'left',
+                  width: '100%',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentTab !== tab.id) {
+                    e.currentTarget.style.background = 'var(--bg-secondary)';
+                    e.currentTarget.style.opacity = '0.8';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentTab !== tab.id) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.opacity = '1';
+                  }
+                }}
+              >
+                {currentTab === tab.id && (
+                  <div style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: '3px',
+                    background: 'var(--text)',
+                    borderRadius: '0 2px 2px 0'
+                  }} />
+                )}
+                <span style={{ fontSize: '20px', flexShrink: 0 }}>{tab.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', marginBottom: '2px' }}>{tab.label}</div>
+                  <div style={{
+                    fontSize: '11px',
+                    color: 'var(--muted)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {tab.desc}
+                  </div>
+                </div>
+              </button>
+            ))}
+            </div>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: 'clamp(8px, 2.5vw, 12px)' }}>
+            {/* Sidebar Footer */}
+            <div style={{
+              borderTop: '1px solid var(--border)',
+              padding: '20px 16px',
+              background: 'var(--panel)'
+            }}>
+              <div style={{
+                fontSize: '10px',
+                color: 'var(--muted)',
+                textAlign: 'center',
+                lineHeight: '1.8',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div>© {new Date().getFullYear()} AI Professor</div>
+                <a
+                  href="/privacy"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    transition: 'color 0.2s',
+                    fontSize: '10px'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  개인정보처리방침
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Tabs */}
+        {isMobile && (
+          <div style={{
+            position: 'absolute',
+            top: '56px',
+            left: 0,
+            right: 0,
+            background: 'var(--panel)',
+            borderBottom: '1px solid var(--border)',
+            zIndex: 10
+          }}>
+            <div style={{ display: 'flex', overflowX: 'auto' }}>
+              {[
+                { id: 'generate' as const, icon: '✨', label: '생성하기' },
+                { id: 'cramming' as const, icon: '⚡', label: '벼락치기' },
+                { id: 'interview' as const, icon: '💼', label: '면접 준비' },
+                { id: 'history' as const, icon: '📚', label: '작업 내역' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setCurrentTab(tab.id)}
+                  style={{
+                    padding: '10px 12px',
+                    border: 'none',
+                    borderBottom: currentTab === tab.id ? '2px solid var(--text)' : '2px solid transparent',
+                    background: 'transparent',
+                    color: currentTab === tab.id ? 'var(--text)' : 'var(--muted)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: currentTab === tab.id ? 600 : 400,
+                    transition: 'all 0.2s ease',
+                    fontFamily: 'inherit',
+                    flex: 1,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content Area with Footer */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Scrollable Content */}
+          <div style={{
+            flex: 1,
+            overflow: 'auto',
+            marginTop: isMobile ? '48px' : 0
+          }}>
+            <div style={{
+              maxWidth: '1400px',
+              margin: '0 auto',
+              padding: isMobile ? '16px' : '32px',
+              minHeight: '100%'
+            }}>
           {currentTab === 'cramming' ? (
             <CrammingTab token={token} username={username} isMobile={isMobile} />
+          ) : currentTab === 'interview' ? (
+            <InterviewTab token={token} username={username} isMobile={isMobile} />
           ) : currentTab === 'generate' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 2.5vw, 12px)', width: '100%', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '20px', width: '100%', margin: '0 auto' }}>
+              {/* Welcome Section (Desktop Only) */}
+              {!isMobile && (
+                <div style={{
+                  padding: '24px 32px',
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)'
+                }}>
+                  <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>
+                    📄 요약/문제 생성하기
+                  </h2>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                    PDF 파일을 업로드하고 AI가 핵심 내용을 요약하거나 예상 문제를 만들어드립니다.
+                  </p>
+                </div>
+              )}
+
               {/* Combined Form */}
-              <div className="card" style={{ padding: 'clamp(12px, 4vw, 16px)', display: 'flex', flexDirection: 'column' }}>
+              <div className="card" style={{
+                padding: isMobile ? '16px' : '28px',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+              }}>
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>PDF 파일 업로드</h3>
+                  <h3 style={{
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 600,
+                    marginBottom: isMobile ? '10px' : '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: isMobile ? '18px' : '20px' }}>📁</span>
+                    PDF 파일 업로드
+                  </h3>
                   <DropZone
                     onFiles={async (uploadedFiles) => {
                       const validFiles: File[] = [];
@@ -638,52 +854,146 @@ export function MainScreen({ username, token }: { username: string; token: strin
                   )}
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: 'clamp(12px, 4vw, 16px) 0', flexShrink: 0 }} />
+                <div style={{
+                  height: 1,
+                  background: 'var(--border)',
+                  margin: isMobile ? '16px 0' : '24px 0',
+                  flexShrink: 0
+                }} />
 
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>작업 유형 선택</h3>
-                  <div className="toolbar">
+                  <h3 style={{
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 600,
+                    marginBottom: isMobile ? '10px' : '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: isMobile ? '18px' : '20px' }}>🎯</span>
+                    작업 유형 선택
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                    gap: isMobile ? '10px' : '16px'
+                  }}>
                     <button
                       className={`btn ${action === 'summary' ? '' : 'secondary'}`}
                       onClick={() => setAction('summary')}
-                      style={{ flex: 1, padding: 'clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
+                      style={{
+                        padding: isMobile ? '10px 16px' : '12px 20px',
+                        fontSize: isMobile ? '13px' : '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px',
+                        borderRadius: '8px',
+                        boxShadow: action === 'summary' ? '0 4px 12px rgba(59, 130, 246, 0.15)' : 'none'
+                      }}
                     >
-                      📝 핵심 요약
+                      <span style={{ fontSize: isMobile ? '22px' : '24px' }}>📝</span>
+                      <span style={{ fontWeight: 600 }}>핵심 요약</span>
                     </button>
                     <button
                       className={`btn ${action === 'quiz' ? '' : 'secondary'}`}
                       onClick={() => setAction('quiz')}
-                      style={{ flex: 1, padding: 'clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px)', fontSize: 'clamp(12px, 3.2vw, 13px)' }}
+                      style={{
+                        padding: isMobile ? '10px 16px' : '12px 20px',
+                        fontSize: isMobile ? '13px' : '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px',
+                        borderRadius: '8px',
+                        boxShadow: action === 'quiz' ? '0 4px 12px rgba(59, 130, 246, 0.15)' : 'none'
+                      }}
                     >
-                      📋 예상 문제
+                      <span style={{ fontSize: isMobile ? '22px' : '24px' }}>📋</span>
+                      <span style={{ fontWeight: 600 }}>예상 문제</span>
                     </button>
                   </div>
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: 'clamp(12px, 4vw, 16px) 0', flexShrink: 0 }} />
+                <div style={{
+                  height: 1,
+                  background: 'var(--border)',
+                  margin: isMobile ? '16px 0' : '24px 0',
+                  flexShrink: 0
+                }} />
 
                 <div style={{ flexShrink: 0 }}>
-                  <h3 style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 10px)' }}>요청 사항 입력</h3>
+                  <h3 style={{
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 600,
+                    marginBottom: isMobile ? '10px' : '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: isMobile ? '18px' : '20px' }}>💬</span>
+                    요청 사항 입력
+                  </h3>
                   <textarea
                     className="input"
                     placeholder={isMobile ? "💬 원하는 요청을 입력하세요\n(예: 핵심 내용을 3페이지로 요약해주세요)" : "💬 원하는 요청을 입력하세요 (예: 이 자료의 핵심 내용을 3페이지로 요약해주세요)"}
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
-                    style={{ minHeight: 'clamp(80px, 25vw, 100px)', resize: 'vertical', fontFamily: 'inherit', fontSize: 'clamp(12px, 3.2vw, 13px)', width: '100%', boxSizing: 'border-box' }}
+                    style={{
+                      minHeight: isMobile ? '100px' : '120px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      fontSize: isMobile ? '13px' : '14px',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      borderRadius: '8px'
+                    }}
                   />
                 </div>
-                <div className="space" style={{ flexShrink: 0 }} />
-                <button className="btn" onClick={onSend} disabled={!canSend || loading} style={{ width: '100%', padding: 'clamp(10px, 3vw, 12px)', fontSize: 'clamp(12px, 3.2vw, 13px)', flexShrink: 0 }}>
+                <div style={{ height: isMobile ? '12px' : '20px', flexShrink: 0 }} />
+                <button
+                  className="btn"
+                  onClick={onSend}
+                  disabled={!canSend || loading}
+                  style={{
+                    width: '100%',
+                    padding: isMobile ? '12px' : '16px',
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 600,
+                    flexShrink: 0,
+                    borderRadius: '8px',
+                    boxShadow: canSend && !loading ? '0 4px 12px rgba(59, 130, 246, 0.2)' : 'none'
+                  }}
+                >
                   {loading ? '⏳ 처리 중...' : '✨ 생성하기'}
                 </button>
               </div>
             </div>
           ) : (
             /* History Tab */
-            <div className="card" style={{ padding: 'clamp(12px, 4vw, 16px)', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ marginBottom: 'clamp(10px, 3.5vw, 14px)', flexShrink: 0 }}>
-                <h2 className="title" style={{ fontSize: 'clamp(16px, 4.5vw, 18px)' }}>📚 작업 내역</h2>
-                <div className="small" style={{ color: 'var(--muted)', marginTop: 3, fontSize: 'clamp(11px, 3vw, 12px)' }}>최근 작업한 내역을 확인하고 다운로드할 수 있습니다</div>
+            <div className="card" style={{
+              padding: isMobile ? '16px' : '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{ marginBottom: isMobile ? '14px' : '20px', flexShrink: 0 }}>
+                <h2 className="title" style={{
+                  fontSize: isMobile ? '18px' : '22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: isMobile ? '24px' : '28px' }}>📚</span>
+                  작업 내역
+                </h2>
+                <div className="small" style={{
+                  color: 'var(--muted)',
+                  marginTop: 6,
+                  fontSize: isMobile ? '12px' : '13px'
+                }}>
+                  최근 작업한 내역을 확인하고 다운로드할 수 있습니다
+                </div>
               </div>
               {historyLoading ? (
                 <div className="center" style={{ padding: '60px 0' }}>
@@ -696,40 +1006,77 @@ export function MainScreen({ username, token }: { username: string; token: strin
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {serverHistory.map((it, index) => (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: isMobile ? '12px' : '16px'
+                  }}>
+                    {serverHistory.map((it) => (
                       <div
                         key={it.id}
                         style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          padding: '12px 8px',
-                          borderBottom: index < serverHistory.length - 1 ? '1px solid var(--border)' : 'none',
-                          transition: 'background 0.2s',
+                          padding: isMobile ? '14px' : '18px',
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          background: 'var(--panel)',
+                          transition: 'all 0.2s',
                           cursor: 'pointer',
-                          gap: 8,
-                          flexWrap: 'wrap'
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--bg-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--text-secondary)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.08)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--panel)';
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
                       >
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 1.5vw, 6px)', minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1.5vw, 6px)', flexWrap: 'wrap' }}>
-                            <span className="chip" style={{ fontSize: 'clamp(9px, 2.5vw, 10px)', flexShrink: 0 }}>
-                              {it.processingType === 'SUMMARY' ? '📝 요약' : it.processingType === 'CRAMMING' ? '⚡ 벼락치기' : '📋 문제'}
-                            </span>
-                            <div className="small" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: 'var(--muted)', flexShrink: 0 }}>
-                              {new Date(it.createdAt).toLocaleDateString()}
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className="chip" style={{
+                            fontSize: isMobile ? '10px' : '11px',
+                            flexShrink: 0,
+                            padding: '4px 10px'
+                          }}>
+                            {it.processingType === 'SUMMARY' ? '📝 요약' : it.processingType === 'CRAMMING' ? '⚡ 벼락치기' : '📋 문제'}
+                          </span>
+                          <div className="small" style={{
+                            fontSize: isMobile ? '11px' : '12px',
+                            color: 'var(--muted)',
+                            flexShrink: 0
+                          }}>
+                            {new Date(it.createdAt).toLocaleDateString('ko-KR', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
                           </div>
-                          <div style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.3' }}>
-                            {it.userPrompt}
-                          </div>
+                        </div>
+                        <div style={{
+                          fontSize: isMobile ? '13px' : '14px',
+                          color: 'var(--text)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          lineHeight: '1.5',
+                          flex: 1
+                        }}>
+                          {it.userPrompt}
                         </div>
                         <button
                           className="btn"
-                          style={{ padding: 'clamp(5px, 1.5vw, 6px) clamp(8px, 2.5vw, 10px)', fontSize: 'clamp(10px, 2.8vw, 11px)', flexShrink: 0, alignSelf: 'flex-start' }}
+                          style={{
+                            padding: isMobile ? '8px 12px' : '10px 16px',
+                            fontSize: isMobile ? '12px' : '13px',
+                            width: '100%',
+                            borderRadius: '6px'
+                          }}
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
@@ -776,8 +1123,6 @@ export function MainScreen({ username, token }: { username: string; token: strin
               )}
             </div>
           )}
-        </div>
-      </div>
 
       {/* Error Modal */}
       {error && (
@@ -1399,40 +1744,43 @@ export function MainScreen({ username, token }: { username: string; token: strin
         />
       )}
 
-      {/* Footer */}
-      <div style={{
-        borderTop: '1px solid var(--border)',
-        background: 'var(--panel)',
-        padding: 'clamp(12px, 4vw, 16px)',
-        marginTop: 'auto'
-      }}>
-        <div style={{
-          maxWidth: '1600px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 'clamp(12px, 4vw, 16px)',
-          flexWrap: 'wrap',
-          fontSize: 'clamp(10px, 2.8vw, 11px)',
-          color: 'var(--muted)'
-        }}>
-          <div>
-            © {new Date().getFullYear()} AI Professor. All rights reserved.
+            </div>
           </div>
-          <a
-            href="/privacy"
-            style={{
-              color: 'var(--text-secondary)',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >
-            개인정보처리방침
-          </a>
+
+          {/* Footer (Mobile Only) */}
+          {isMobile && (
+            <div style={{
+              borderTop: '1px solid var(--border)',
+              background: 'var(--panel)',
+              padding: '12px 16px',
+              flexShrink: 0
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '16px',
+                flexWrap: 'wrap',
+                fontSize: '10px',
+                color: 'var(--muted)'
+              }}>
+                <div>© {new Date().getFullYear()} AI Professor</div>
+                <a
+                  href="/privacy"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    transition: 'color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  개인정보처리방침
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
