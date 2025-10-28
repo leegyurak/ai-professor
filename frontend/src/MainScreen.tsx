@@ -436,14 +436,15 @@ export function MainScreen({ username, token }: { username: string; token: strin
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: isMobile ? '12px 16px' : '16px 32px',
-          gap: '16px'
+          padding: isMobile ? '14px 16px' : '20px 32px',
+          gap: '16px',
+          minHeight: isMobile ? '64px' : '72px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px', minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: isMobile ? '24px' : '32px', flexShrink: 0 }}>🎓</div>
-            <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <h1 className="title" style={{ fontSize: isMobile ? '16px' : '20px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>AI Professor</h1>
-              <div className="small" style={{ color: 'var(--muted)', marginTop: 2, fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: isMobile ? '24px' : '32px', flexShrink: 0, lineHeight: 1 }}>🎓</div>
+            <div style={{ minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <h1 className="title" style={{ fontSize: isMobile ? '16px' : '20px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0, lineHeight: 1.2 }}>AI Professor</h1>
+              <div className="small" style={{ color: 'var(--muted)', marginTop: isMobile ? '2px' : '4px', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
                 안녕하세요, <b>{username}</b>님 👋
               </div>
             </div>
@@ -631,14 +632,21 @@ export function MainScreen({ username, token }: { username: string; token: strin
         {isMobile && (
           <div style={{
             position: 'absolute',
-            top: '56px',
+            top: '64px',
             left: 0,
             right: 0,
-            background: 'var(--panel)',
-            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            paddingTop: '1px',
+            paddingBottom: '1px',
             zIndex: 10
           }}>
-            <div style={{ display: 'flex', overflowX: 'auto' }}>
+            <div style={{
+              display: 'flex',
+              overflowX: 'auto',
+              padding: '2px 4px',
+              background: 'var(--panel)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+            }}>
               {[
                 { id: 'generate' as const, icon: '✨', label: '생성하기' },
                 { id: 'cramming' as const, icon: '⚡', label: '벼락치기' },
@@ -649,9 +657,9 @@ export function MainScreen({ username, token }: { username: string; token: strin
                   key={tab.id}
                   onClick={() => setCurrentTab(tab.id)}
                   style={{
-                    padding: '10px 12px',
+                    padding: '6px 8px',
                     border: 'none',
-                    borderBottom: currentTab === tab.id ? '2px solid var(--text)' : '2px solid transparent',
+                    borderBottom: currentTab === tab.id ? '3px solid var(--text)' : '3px solid transparent',
                     background: 'transparent',
                     color: currentTab === tab.id ? 'var(--text)' : 'var(--muted)',
                     cursor: 'pointer',
@@ -660,10 +668,15 @@ export function MainScreen({ username, token }: { username: string; token: strin
                     transition: 'all 0.2s ease',
                     fontFamily: 'inherit',
                     flex: 1,
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
                   }}
                 >
-                  {tab.icon} {tab.label}
+                  <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -681,7 +694,7 @@ export function MainScreen({ username, token }: { username: string; token: strin
           <div style={{
             flex: 1,
             overflow: 'auto',
-            marginTop: isMobile ? '48px' : 0
+            marginTop: isMobile ? '56px' : 0
           }}>
             <div style={{
               maxWidth: '1400px',

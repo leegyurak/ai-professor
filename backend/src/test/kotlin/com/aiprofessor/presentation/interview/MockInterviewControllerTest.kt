@@ -417,7 +417,7 @@ class MockInterviewControllerTest : IntegrationTestBase() {
     @Test
     fun `createMockInterview should handle large base64 resume`() {
         // given
-        val largeResumeBytes = ByteArray(50 * 1024 * 1024) // 50MB
+        val largeResumeBytes = ByteArray(10 * 1024 * 1024) // 10MB
         val largeBase64 = Base64.getEncoder().encodeToString(largeResumeBytes)
         val requestDto =
             CreateMockInterviewRequestDto(

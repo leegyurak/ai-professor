@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   createInterview,
   getInterviews,
@@ -42,7 +43,7 @@ const LOADING_MESSAGES_MOBILE = [
   '🚀 거의 완성...',
 ];
 
-export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
+export function InterviewTab({ token, username: _username, isMobile }: InterviewTabProps) {
   const [phase, setPhase] = useState<InterviewPhase>('list');
   const [interviews, setInterviews] = useState<InterviewResponse[]>([]);
   const [selectedInterview, setSelectedInterview] = useState<InterviewResponse | null>(null);
@@ -59,7 +60,13 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
   const [currentMockInterviewId, setCurrentMockInterviewId] = useState<number | null>(null);
 
   // Answer phase
-  const [answers, setAnswers] = useState('');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionAnswers, setQuestionAnswers] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [timer, setTimer] = useState(60);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [thinkingTimeLeft, setThinkingTimeLeft] = useState(2); // 생각할 시간 2번
+  const [isThinkingTime, setIsThinkingTime] = useState(false); // 현재 생각하는 중인지
 
   // Grading phase
   const [gradingMarkdown, setGradingMarkdown] = useState('');
@@ -81,6 +88,29 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
       return () => clearInterval(interval);
     }
   }, [loading, LOADING_MESSAGES.length]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    // 타이머는 isTimerRunning이 true이고, 생각하는 시간이 아닐 때만 작동
+    if (isTimerRunning && timer > 0 && !isThinkingTime) {
+      const interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isTimerRunning, timer, isThinkingTime]);
+
+  // Handle timer expiration
+  useEffect(() => {
+    if (timer === 0 && isTimerRunning) {
+      setIsTimerRunning(false);
+      // Small delay before auto-advancing
+      const timeout = setTimeout(() => {
+        handleNextQuestion();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [timer, isTimerRunning]);
 
   // Load interviews on mount
   useEffect(() => {
@@ -198,43 +228,114 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
   };
 
   const handleStartAnswer = () => {
+    // Parse questions from markdown
+    // Questions are separated by \n and can start with Q1., 1., or just be plain text
+    console.log('[InterviewTab] Raw questionMarkdown:', questionMarkdown);
+
+    const lines = questionMarkdown.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    console.log('[InterviewTab] Parsed lines:', lines);
+    console.log('[InterviewTab] Total questions:', lines.length);
+
+    // Filter lines that look like questions (start with Q, number, or have significant content)
+    const questionLines = lines.filter(line => {
+      // Check if line starts with Q1, Q2, etc.
+      if (/^Q\d+/i.test(line)) return true;
+      // Check if line starts with 1., 2., etc.
+      if (/^\d+\./.test(line)) return true;
+      // Check if line starts with number and ) like 1) 2)
+      if (/^\d+\)/.test(line)) return true;
+      // If line has substantial content (more than 10 characters), consider it a question
+      if (line.length > 10) return true;
+      return false;
+    });
+
+    console.log('[InterviewTab] Filtered questions:', questionLines);
+    console.log('[InterviewTab] Question count:', questionLines.length);
+
+    setQuestions(questionLines);
+    setQuestionAnswers(new Array(questionLines.length).fill(''));
+    setCurrentQuestionIndex(0);
+    setTimer(60);
+    setIsTimerRunning(true);
+    setThinkingTimeLeft(2); // 생각할 시간 초기화
+    setIsThinkingTime(false);
     setPhase('answer');
-    setAnswers('');
   };
 
-  const handleSubmitAnswers = async () => {
-    if (!answers.trim()) {
-      setError('답변을 입력해주세요.');
-      return;
+  const handleToggleThinkingTime = () => {
+    if (!isThinkingTime && thinkingTimeLeft > 0) {
+      // 생각할 시간 시작
+      setIsThinkingTime(true);
+      setThinkingTimeLeft(prev => prev - 1);
+    } else if (isThinkingTime) {
+      // 생각할 시간 종료
+      setIsThinkingTime(false);
     }
+  };
 
-    if (!currentMockInterviewId) {
-      setError('모의 면접 ID가 없습니다.');
-      return;
-    }
+  const handleNextQuestion = async () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setTimer(60);
+      setIsTimerRunning(true);
+    } else {
+      // All questions answered, combine answers and submit
+      setIsTimerRunning(false);
+      const combinedAnswers = questions.map((q, idx) => {
+        return `${q}\n답변: ${questionAnswers[idx] || '(답변 없음)'}\n`;
+      }).join('\n');
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await gradeMockInterview(currentMockInterviewId, { answers }, token);
-      setGradingMarkdown(result.gradingMarkdown);
-      setPhase('grading');
-
-      // Check if passed (score >= 60)
-      const scoreMatch = result.gradingMarkdown.match(/총점[:\s]*(\d+)/);
-      if (scoreMatch) {
-        const score = parseInt(scoreMatch[1]);
-        if (score >= 75) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 5000);
-        }
+      // Set answers and then submit
+      if (!combinedAnswers.trim()) {
+        setError('답변을 입력해주세요.');
+        return;
       }
-    } catch (e: any) {
-      setError(e?.message || '답변 채점에 실패했습니다.');
-    } finally {
-      setLoading(false);
+
+      if (!currentMockInterviewId) {
+        setError('모의 면접 ID가 없습니다.');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await gradeMockInterview(currentMockInterviewId, { answers: combinedAnswers }, token);
+        setGradingMarkdown(result.gradingMarkdown);
+        setPhase('grading');
+
+        // Check if passed (score >= 60)
+        const scoreMatch = result.gradingMarkdown.match(/총점[:\s]*(\d+)/);
+        if (scoreMatch) {
+          const score = parseInt(scoreMatch[1]);
+          if (score >= 75) {
+            setShowConfetti(true);
+            setTimeout(() => setShowConfetti(false), 5000);
+          }
+        }
+      } catch (e: any) {
+        setError(e?.message || '답변 채점에 실패했습니다.');
+      } finally {
+        setLoading(false);
+      }
     }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      setTimer(60);
+      setIsTimerRunning(true);
+    }
+  };
+
+  const handleSaveCurrentAnswer = (answer: string) => {
+    const newAnswers = [...questionAnswers];
+    newAnswers[currentQuestionIndex] = answer;
+    setQuestionAnswers(newAnswers);
   };
 
   const resetToList = () => {
@@ -247,7 +348,13 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
     setResumeFile(null);
     setQuestionMarkdown('');
     setCurrentMockInterviewId(null);
-    setAnswers('');
+    setCurrentQuestionIndex(0);
+    setQuestionAnswers([]);
+    setQuestions([]);
+    setTimer(60);
+    setIsTimerRunning(false);
+    setThinkingTimeLeft(2);
+    setIsThinkingTime(false);
     setGradingMarkdown('');
     setShowConfetti(false);
     loadInterviews();
@@ -645,141 +752,304 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
           </div>
         )}
 
-        {/* Questions Phase - View Generated Questions */}
-        {phase === 'questions' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
-            <div className="alert" style={{ background: 'rgba(76, 175, 80, 0.1)', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
-              <span className="alert-icon" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }}>✅</span>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>면접 질문 생성 완료!</div>
-                <div style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>총 10개의 맞춤형 면접 질문이 준비되었습니다</div>
-              </div>
-            </div>
+        {/* Questions Phase - Ready to Start Interview */}
+        {phase === 'questions' && (() => {
+          // Parse question count for display
+          const lines = questionMarkdown.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
 
-            <div style={{
-              padding: 'clamp(16px, 5vw, 20px)',
-              background: 'var(--bg-secondary)',
-              borderRadius: 4,
-              border: '1px solid var(--border)',
-              maxHeight: '400px',
-              overflow: 'auto'
-            }}>
+          const questionCount = lines.filter(line => {
+            if (/^Q\d+/i.test(line)) return true;
+            if (/^\d+\./.test(line)) return true;
+            if (/^\d+\)/.test(line)) return true;
+            if (line.length > 10) return true;
+            return false;
+          }).length;
+
+          return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(20px, 6vw, 32px)' }}>
+            {/* Success Message */}
+            <div className="center" style={{ flexDirection: 'column', gap: 'clamp(16px, 5vw, 24px)', padding: 'clamp(40px, 12vw, 60px) 0' }}>
+              <div style={{ fontSize: 'clamp(64px, 18vw, 96px)' }}>🎤</div>
               <div style={{
-                fontSize: 'clamp(13px, 3.5vw, 14px)',
-                lineHeight: '1.8',
-                whiteSpace: 'pre-wrap'
+                fontSize: 'clamp(20px, 6vw, 28px)',
+                fontWeight: 700,
+                textAlign: 'center',
+                lineHeight: '1.4'
               }}>
-                {questionMarkdown}
+                면접 준비가 완료되었습니다!
+              </div>
+              <div style={{
+                fontSize: 'clamp(14px, 4vw, 16px)',
+                color: 'var(--text-secondary)',
+                textAlign: 'center',
+                lineHeight: '1.6',
+                maxWidth: '500px'
+              }}>
+                총 {questionCount}개의 맞춤형 면접 질문이 준비되었습니다.<br />
+                각 질문마다 1분의 답변 시간이 주어집니다.<br />
+                준비되면 시작 버튼을 눌러주세요.
               </div>
             </div>
 
+            {/* Tips */}
             <div style={{
-              padding: 'clamp(12px, 4vw, 16px)',
+              padding: 'clamp(16px, 5vw, 24px)',
               background: 'rgba(255, 235, 59, 0.1)',
-              border: '1px solid rgba(255, 193, 7, 0.3)',
-              borderRadius: 4,
-              fontSize: 'clamp(12px, 3.2vw, 13px)',
-              lineHeight: '1.6'
+              border: '2px solid rgba(255, 193, 7, 0.3)',
+              borderRadius: '8px',
+              fontSize: 'clamp(13px, 3.5vw, 14px)',
+              lineHeight: '1.8'
             }}>
-              💡 <b>팁:</b> 각 질문에 대해 STAR 기법(상황, 과제, 행동, 결과)을 활용하여 구체적으로 답변해보세요!
+              <div style={{ fontWeight: 600, marginBottom: 'clamp(8px, 2.5vw, 12px)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                💡 면접 답변 팁
+              </div>
+              <div style={{ color: 'var(--text-secondary)' }}>
+                • STAR 기법을 활용하세요 (상황, 과제, 행동, 결과)<br />
+                • 구체적인 사례와 수치를 포함하면 좋습니다<br />
+                • 질문을 끝까지 읽고 답변의 방향을 정하세요<br />
+                • 1분이 지나면 자동으로 다음 질문으로 넘어갑니다
+              </div>
             </div>
 
+            {/* Start Button */}
             <button
               className="btn"
               onClick={handleStartAnswer}
               style={{
                 width: '100%',
-                padding: 'clamp(14px, 4.5vw, 16px)',
-                fontSize: 'clamp(14px, 4vw, 16px)',
-                fontWeight: 600
+                padding: 'clamp(16px, 5vw, 20px)',
+                fontSize: 'clamp(16px, 4.5vw, 18px)',
+                fontWeight: 700,
+                borderRadius: '12px',
+                boxShadow: '0 6px 16px rgba(76, 175, 80, 0.3)'
               }}
             >
-              ✏️ 답변 작성하러 가기
+              🚀 면접 시작하기
+            </button>
+
+            {/* Back Button */}
+            <button
+              className="btn secondary"
+              onClick={resetToList}
+              style={{
+                width: '100%',
+                padding: 'clamp(10px, 3vw, 12px)',
+                fontSize: 'clamp(12px, 3.2vw, 13px)'
+              }}
+            >
+              ← 목록으로 돌아가기
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {/* Answer Phase - Write Answers */}
         {phase === 'answer' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 5vw, 20px)' }}>
-            <div className="alert" style={{ background: 'rgba(33, 150, 243, 0.1)', border: '1px solid rgba(33, 150, 243, 0.3)' }}>
-              <span className="alert-icon" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }}>✏️</span>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>10개 질문에 답변해주세요</div>
-                <div style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>AI가 당신의 답변을 전문가 수준으로 평가합니다</div>
+            {/* Progress and Timer */}
+            <div style={{ display: 'flex', gap: 'clamp(12px, 4vw, 16px)', alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div className="alert" style={{
+                flex: 1,
+                minWidth: '200px',
+                background: 'rgba(33, 150, 243, 0.1)',
+                border: '1px solid rgba(33, 150, 243, 0.3)',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                <span className="alert-icon" style={{ fontSize: 'clamp(20px, 5.5vw, 24px)' }}>✏️</span>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    질문 {currentQuestionIndex + 1} / {questions.length}
+                  </div>
+                  <div style={{ fontSize: 'clamp(11px, 3vw, 12px)' }}>
+                    각 질문마다 1분의 답변 시간이 주어집니다
+                  </div>
+                </div>
+              </div>
+
+              {/* Timer Display */}
+              <div style={{
+                padding: 'clamp(12px, 4vw, 16px)',
+                background: timer <= 10 ? 'rgba(244, 67, 54, 0.1)' : 'rgba(76, 175, 80, 0.1)',
+                border: timer <= 10 ? '2px solid rgba(244, 67, 54, 0.5)' : '2px solid rgba(76, 175, 80, 0.3)',
+                borderRadius: '8px',
+                textAlign: 'center',
+                minWidth: '100px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }}>
+                <div style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: 'var(--muted)', marginBottom: 2 }}>
+                  ⏱️ 남은 시간
+                </div>
+                <div style={{
+                  fontSize: 'clamp(20px, 6vw, 24px)',
+                  fontWeight: 700,
+                  color: timer <= 10 ? '#f44336' : '#4caf50'
+                }}>
+                  {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+                </div>
               </div>
             </div>
 
+            {/* Current Question */}
             <div style={{
-              padding: 'clamp(16px, 5vw, 20px)',
+              padding: 'clamp(20px, 6vw, 28px)',
               background: 'var(--bg-secondary)',
-              borderRadius: 4,
-              border: '1px solid var(--border)',
-              maxHeight: '200px',
-              overflow: 'auto',
-              marginBottom: 'clamp(8px, 2.5vw, 10px)'
+              borderRadius: '8px',
+              border: '2px solid var(--border)'
             }}>
-              <div style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: 'var(--muted)', marginBottom: 'clamp(8px, 2.5vw, 10px)', fontWeight: 600 }}>
-                📋 질문 목록 (참고용)
+              <div style={{
+                fontSize: 'clamp(11px, 3vw, 12px)',
+                color: 'var(--muted)',
+                marginBottom: 'clamp(12px, 4vw, 16px)',
+                fontWeight: 600
+              }}>
+                📋 현재 질문
               </div>
               <div style={{
-                fontSize: 'clamp(12px, 3.2vw, 13px)',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap'
+                fontSize: 'clamp(14px, 4vw, 16px)',
+                lineHeight: '1.8',
+                fontWeight: 500,
+                color: 'var(--text)'
               }}>
-                {questionMarkdown}
+                {questions[currentQuestionIndex]}
               </div>
             </div>
 
+            {/* Answer Input */}
             <div>
-              <div style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', fontWeight: 600, marginBottom: 'clamp(10px, 3vw, 12px)' }}>
-                💬 당신의 답변을 작성하세요
+              <div style={{
+                fontSize: 'clamp(13px, 3.5vw, 14px)',
+                fontWeight: 600,
+                marginBottom: 'clamp(10px, 3vw, 12px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                💬 답변 작성
+                {questionAnswers[currentQuestionIndex] && (
+                  <span style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: '#4caf50' }}>
+                    ✓ 작성됨
+                  </span>
+                )}
               </div>
               <textarea
                 className="input"
-                placeholder="각 질문에 대한 답변을 작성해주세요. 질문 번호를 명시하여 작성하면 더 정확한 평가를 받을 수 있습니다.&#10;&#10;예시:&#10;Q1. ...&#10;답변: ...&#10;&#10;Q2. ...&#10;답변: ..."
-                value={answers}
-                onChange={(e) => setAnswers(e.target.value)}
+                placeholder="STAR 기법을 활용하여 구체적으로 답변해주세요.&#10;&#10;- 상황(Situation): 어떤 상황이었나요?&#10;- 과제(Task): 무엇을 해결해야 했나요?&#10;- 행동(Action): 어떻게 행동했나요?&#10;- 결과(Result): 어떤 결과를 얻었나요?"
+                value={questionAnswers[currentQuestionIndex] || ''}
+                onChange={(e) => handleSaveCurrentAnswer(e.target.value)}
+                disabled={isThinkingTime}
                 style={{
                   minHeight: 'clamp(200px, 50vw, 300px)',
                   resize: 'vertical',
                   fontSize: 'clamp(13px, 3.5vw, 14px)',
-                  lineHeight: '1.6'
+                  lineHeight: '1.6',
+                  opacity: isThinkingTime ? 0.6 : 1,
+                  cursor: isThinkingTime ? 'not-allowed' : 'text'
                 }}
               />
-              <div className="small" style={{ color: 'var(--muted)', fontSize: 'clamp(10px, 2.8vw, 11px)', marginTop: 'clamp(8px, 2.5vw, 10px)' }}>
+              <div className="small" style={{
+                color: 'var(--muted)',
+                fontSize: 'clamp(10px, 2.8vw, 11px)',
+                marginTop: 'clamp(8px, 2.5vw, 10px)'
+              }}>
                 💡 구체적인 사례와 수치를 포함하면 더 좋은 평가를 받을 수 있습니다
               </div>
             </div>
 
+            {/* Thinking Time Button */}
+            <div style={{
+              padding: 'clamp(12px, 4vw, 16px)',
+              background: isThinkingTime ? 'rgba(255, 152, 0, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+              border: isThinkingTime ? '1px solid rgba(255, 152, 0, 0.3)' : '1px solid rgba(33, 150, 243, 0.3)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 'clamp(12px, 4vw, 16px)',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{
+                  fontSize: 'clamp(12px, 3.2vw, 13px)',
+                  fontWeight: 600,
+                  marginBottom: 'clamp(4px, 1.5vw, 6px)'
+                }}>
+                  🤔 생각할 시간 (남은 횟수: {thinkingTimeLeft + (isThinkingTime ? 1 : 0)}/2)
+                </div>
+                <div style={{
+                  fontSize: 'clamp(10px, 2.8vw, 11px)',
+                  color: 'var(--text-secondary)',
+                  lineHeight: '1.5'
+                }}>
+                  {isThinkingTime
+                    ? '타이머가 일시정지되었습니다. 다시 시작하려면 버튼을 누르세요.'
+                    : '막막할 때 사용하세요. 타이머가 멈추고 답변 입력이 잠시 차단됩니다.'
+                  }
+                </div>
+              </div>
+              <button
+                className="btn"
+                onClick={handleToggleThinkingTime}
+                disabled={!isThinkingTime && thinkingTimeLeft === 0}
+                style={{
+                  padding: 'clamp(10px, 3vw, 12px) clamp(16px, 5vw, 20px)',
+                  fontSize: 'clamp(12px, 3.2vw, 13px)',
+                  fontWeight: 600,
+                  minWidth: '120px',
+                  backgroundColor: isThinkingTime ? '#ff9800' : undefined,
+                  opacity: (!isThinkingTime && thinkingTimeLeft === 0) ? 0.5 : 1
+                }}
+              >
+                {isThinkingTime ? '⏯️ 다시 시작' : '🤔 생각할 시간'}
+              </button>
+            </div>
+
+            {/* Navigation Buttons */}
             <div style={{ display: 'flex', gap: 'clamp(8px, 2.5vw, 10px)' }}>
               <button
                 className="btn secondary"
-                onClick={() => setPhase('questions')}
+                onClick={handlePrevQuestion}
+                disabled={currentQuestionIndex === 0}
                 style={{
                   flex: 1,
-                  padding: 'clamp(10px, 3vw, 12px)',
-                  fontSize: 'clamp(12px, 3.2vw, 13px)'
+                  padding: 'clamp(12px, 3.5vw, 14px)',
+                  fontSize: 'clamp(13px, 3.5vw, 14px)',
+                  opacity: currentQuestionIndex === 0 ? 0.5 : 1
                 }}
               >
-                ← 질문 다시 보기
+                ← 이전 질문
               </button>
               <button
                 className="btn"
-                onClick={handleSubmitAnswers}
-                disabled={!answers.trim() || loading}
+                onClick={handleNextQuestion}
                 style={{
                   flex: 2,
-                  padding: isMobile ? '14px' : '18px',
-                  fontSize: isMobile ? '15px' : '17px',
+                  padding: 'clamp(12px, 3.5vw, 14px)',
+                  fontSize: 'clamp(13px, 3.5vw, 14px)',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  boxShadow: (answers.trim() && !loading) ? '0 4px 12px rgba(76, 175, 80, 0.3)' : 'none'
+                  boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)'
                 }}
               >
-                {loading ? '⏳ 채점 중...' : '📊 답변 제출하고 채점받기'}
+                {currentQuestionIndex === questions.length - 1 ? '✅ 답변 제출' : '다음 질문 →'}
               </button>
             </div>
+
+            {/* Skip Timer Button */}
+            <button
+              className="btn ghost"
+              onClick={() => setTimer(0)}
+              style={{
+                padding: 'clamp(8px, 2.5vw, 10px)',
+                fontSize: 'clamp(11px, 3vw, 12px)'
+              }}
+            >
+              ⏩ 타이머 스킵하고 다음으로
+            </button>
           </div>
         )}
 
@@ -809,17 +1079,33 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
             <div style={{
               padding: 'clamp(16px, 5vw, 20px)',
               background: 'var(--bg-secondary)',
-              borderRadius: 4,
+              borderRadius: '8px',
               border: '1px solid var(--border)',
               maxHeight: '500px',
               overflow: 'auto'
             }}>
               <div style={{
                 fontSize: 'clamp(13px, 3.5vw, 14px)',
-                lineHeight: '1.8',
-                whiteSpace: 'pre-wrap'
-              }}>
-                {gradingMarkdown}
+                lineHeight: '1.8'
+              }} className="markdown-content">
+                <ReactMarkdown
+                  components={{
+                    h1: ({node, ...props}) => <h1 style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, marginBottom: '16px', marginTop: '20px' }} {...props} />,
+                    h2: ({node, ...props}) => <h2 style={{ fontSize: 'clamp(16px, 4.5vw, 20px)', fontWeight: 700, marginBottom: '12px', marginTop: '16px' }} {...props} />,
+                    h3: ({node, ...props}) => <h3 style={{ fontSize: 'clamp(14px, 4vw, 18px)', fontWeight: 600, marginBottom: '10px', marginTop: '14px' }} {...props} />,
+                    p: ({node, ...props}) => <p style={{ marginBottom: '12px', lineHeight: '1.8' }} {...props} />,
+                    ul: ({node, ...props}) => <ul style={{ marginLeft: '20px', marginBottom: '12px', listStyleType: 'disc' }} {...props} />,
+                    ol: ({node, ...props}) => <ol style={{ marginLeft: '20px', marginBottom: '12px', listStyleType: 'decimal' }} {...props} />,
+                    li: ({node, ...props}) => <li style={{ marginBottom: '8px', lineHeight: '1.6' }} {...props} />,
+                    strong: ({node, ...props}) => <strong style={{ fontWeight: 700, color: 'var(--text)' }} {...props} />,
+                    em: ({node, ...props}) => <em style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }} {...props} />,
+                    code: ({node, ...props}) => <code style={{ backgroundColor: 'var(--panel)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.9em' }} {...props} />,
+                    blockquote: ({node, ...props}) => <blockquote style={{ borderLeft: '4px solid var(--border)', paddingLeft: '16px', marginLeft: '0', marginBottom: '12px', color: 'var(--text-secondary)' }} {...props} />,
+                    hr: ({node, ...props}) => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} {...props} />
+                  }}
+                >
+                  {gradingMarkdown}
+                </ReactMarkdown>
               </div>
             </div>
 
@@ -842,7 +1128,13 @@ export function InterviewTab({ token, username, isMobile }: InterviewTabProps) {
                   setResumeFile(null);
                   setQuestionMarkdown('');
                   setCurrentMockInterviewId(null);
-                  setAnswers('');
+                  setCurrentQuestionIndex(0);
+                  setQuestionAnswers([]);
+                  setQuestions([]);
+                  setTimer(60);
+                  setIsTimerRunning(false);
+                  setThinkingTimeLeft(2);
+                  setIsThinkingTime(false);
                   setGradingMarkdown('');
                 }}
                 style={{
